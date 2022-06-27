@@ -1,0 +1,16 @@
+name: ses-ling
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - ipykernel
+  - numpy
+  - pandas
+  - geopandas
+  - pygeos
+  - jupyterlab
+  - matplotlib
+  - pip:
+    - -r requirements.txt

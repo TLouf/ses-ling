@@ -1,0 +1,33 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "simple": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        }
+    },
+  
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "INFO",
+            "formatter": "simple",
+            "stream": "ext://sys.stdout"
+        },
+        "file_handler": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "INFO",
+            "formatter": "simple",
+            "filename": "scripts.log",
+            "maxBytes": 10485760,
+            "backupCount": 2,
+            "encoding": "utf8",
+            "errors": "errors"
+        }
+    },
+  
+    "root": {
+        "level": "INFO",
+        "handlers": ["console", "file_handler"]
+    }
+}
