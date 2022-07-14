@@ -33,9 +33,13 @@ TWEETS_COLS = {
 }
 
 
-def places_from_mongo(db, filter, add_fields=None, tweets_filter=None, tweets_colls=None):
+def places_from_mongo(
+    db: str, filter: qr.Filter, add_fields=None, tweets_filter=None, tweets_colls=None
+) -> geopd.GeoDataFrame:
     '''
-    Return the GeoDataFrame of places in database `db` matching `filter`.
+    Return the GeoDataFrame of places in database `db` matching `filter`. Optionally, if
+    there is no "places" collection in the database, will retrieve them from the tweets
+    in `tweets_colls` matching `tweets_filter`, via `places_from_mongo_tweets`.
     '''
     if add_fields is None:
         add_fields = []
@@ -50,7 +54,9 @@ def places_from_mongo(db, filter, add_fields=None, tweets_filter=None, tweets_co
                     f'There is no places collection in {db}, specify tweet'
                     ' collections from which to retrieve them.'
                 )
-            return places_from_mongo_tweets(db, tweets_colls, tweets_filter, add_fields=add_fields)
+            return places_from_mongo_tweets(
+                db, tweets_colls, tweets_filter=tweets_filter, add_fields=add_fields
+            )
 
         places = con['places'].extract(filter, fields=all_fields)
 
@@ -77,7 +83,8 @@ def places_from_mongo_tweets(
     db: str, colls: str | list, tweets_filter: qr.Filter | None = None, add_fields=None
 ) -> geopd.GeoDataFrame:
     '''
-    When no 'places' collection
+    Returns the GeoDataFrame of places in database `db` from the tweets in `colls`
+    matching `tweets_filter`.
     '''
     if add_fields is None:
         add_fields = []
@@ -370,6 +377,11 @@ def dt_chunk_filters_mongo(db, colls: str | list, filter, start, end, chunksize=
 
 
 def mongo_groupby_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
+    '''
+    From the result `res` of a Mongo aggregation defined in the pipeline `pipeline`
+    containing a group stage, returns a DataFrame containing the result, with a
+    potential `MultiIndex` if there is a groupby on more than one field.
+    '''
     # Get the last groupby stage, and copy to preserve pipeline.
     cols = [p['$group'] for p in pipeline if '$group' in p][-1].copy()
     id_part = cols.pop('_id')
