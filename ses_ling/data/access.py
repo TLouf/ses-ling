@@ -353,7 +353,7 @@ def mongo_groupby_to_df(res, pipeline):
 
 
 def gps_filter(f: qr.Filter):
-    return f.exists('coordinates').not_equals('coordinates', None)
+    return f.copy().exists('coordinates.coordinates')
 
 
 def base_mongo_filter(year):
