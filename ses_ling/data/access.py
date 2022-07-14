@@ -356,11 +356,12 @@ def gps_filter(f: qr.Filter):
     return f.copy().exists('coordinates.coordinates')
 
 
-def base_mongo_filter(year):
+def base_tweets_filter(year: int, filter_sources=False):
     year_start = datetime.datetime(year, 1, 1)
-    # Selected after looking at counts by source for 2015-2021 in the US, retains most
-    # of the tweets while excluding obvious bot accounts.
-    # TODO: remove insta and foursquare for when we're inteerested in tweets' text?
-    # source_patt = '>Twitter |>Instagram|>Tweetbot|>Foursquare'
-    f = qr.Filter().greater_or_equals('created_at', year_start) # .regex('source', source_patt)
+    f = qr.Filter().greater_or_equals('created_at', year_start)
+    if filter_sources:
+        # Selected after looking at counts by source for 2015-2021 in the US, retains
+        # most of the tweets while excluding obvious bot accounts.
+        source_patt = '>Twitter |>Instagram|>Tweetbot|>Foursquare'
+        f = f.regex('source', source_patt)
     return f
