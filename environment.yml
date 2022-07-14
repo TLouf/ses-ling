@@ -12,5 +12,6 @@ dependencies:
   - pygeos
   - jupyterlab
   - matplotlib
+  - pyarrow
   - pip:
     - -r requirements.txt
