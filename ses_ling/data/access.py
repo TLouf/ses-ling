@@ -112,6 +112,33 @@ def places_from_mongo_tweets(
     return raw_places_gdf
 
 
+def agg_places_from_mongo(
+    year_from, year_to, filter, add_fields=None, tweets_filter=None, tweets_colls=None
+):
+    '''
+    Returns the GeoDataFrame of places contained in the databases corresponding to the
+    years between `year_from` and `year_to` included.
+    '''
+    for year in range(year_to, year_from-1, -1):
+        db = f'twitter_{year}'
+        if year == year_to:
+            places_gdf = places_from_mongo(
+                db, filter, add_fields=add_fields, tweets_filter=tweets_filter,
+                tweets_colls=tweets_colls
+            )
+        else:
+            places_gdf = places_gdf.combine_first(
+                places_from_mongo(
+                    db, filter, add_fields=add_fields, tweets_filter=tweets_filter,
+                    tweets_colls=tweets_colls
+                )
+            )
+            LOGGER.info(f'As of year {year}, {places_gdf.shape[0]} places retrieved')
+
+    places_gdf.crs = 'epsg:4326'
+    return places_gdf
+
+
 def tweets_from_mongo(
     db, filter, colls: str | list, cols=None, limit=-1,
     coords_as: Literal['list', 'xy'] = 'xy'
