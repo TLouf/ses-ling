@@ -45,10 +45,10 @@ def places_from_mongo(db, filter, add_fields=None, tweets_filter=None, tweets_co
     with qr.Connection(db) as con:
 
         if 'places' not in con.list_available_collections():
-            if tweets_colls is None or tweets_filter is None:
+            if tweets_colls is None:
                 raise ValueError(
-                    f'There is no places collection in {db}, specify tweet '
-                    'filters and collections from which to retrieve them.'
+                    f'There is no places collection in {db}, specify tweet'
+                    ' collections from which to retrieve them.'
                 )
             return places_from_mongo_tweets(db, tweets_colls, tweets_filter, add_fields=add_fields)
 
@@ -73,7 +73,9 @@ def places_from_mongo(db, filter, add_fields=None, tweets_filter=None, tweets_co
     return raw_places_gdf
 
 
-def places_from_mongo_tweets(db, colls: str | list, tweets_filter, add_fields=None):
+def places_from_mongo_tweets(
+    db: str, colls: str | list, tweets_filter: qr.Filter | None = None, add_fields=None
+) -> geopd.GeoDataFrame:
     '''
     When no 'places' collection
     '''
