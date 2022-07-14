@@ -87,7 +87,7 @@ def places_from_mongo_tweets(
     with qr.Connection(db) as con:
         agg_dict = {
             "name": ("place.name", "first"),
-            "type": ("place.place_type", "first"),
+            "place_type": ("place.place_type", "first"),
             "nr_tweets": ("place.id", "count"),
             "bbox": ("place.bounding_box.coordinates", "first"),
             **{field: (f"place.{field}", "first") for field in add_fields}
@@ -100,7 +100,7 @@ def places_from_mongo_tweets(
             ).agg(**agg_dict)
 
             for p in tqdm(places):
-                p['id'] = p.pop('_id')
+                p['id'] = p.pop('_id')['place_id']
                 bbox = p.pop('bbox')[0]
                 p['geometry'], _ = geo_utils.geo_from_bbox(bbox)
                 geodf_dicts.append(p)
