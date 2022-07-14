@@ -6,7 +6,7 @@ strings refers to a column. Cannot use Modin or Dask because of gzip
 compression, Parquet data files would be ideal.
 '''
 from __future__ import annotations
-from typing import Literal
+from typing import Literal, Iterable
 from functools import reduce
 from math import ceil
 import datetime
@@ -342,7 +342,7 @@ def dt_chunk_filters_mongo(db, colls: str | list, filter, start, end, chunksize=
     return chunk_filters
 
 
-def mongo_groupby_to_df(res, pipeline):
+def mongo_groupby_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
     # Get the last groupby stage, and copy to preserve pipeline.
     cols = [p['$group'] for p in pipeline if '$group' in p][-1].copy()
     id_part = cols.pop('_id')
@@ -371,7 +371,7 @@ def mongo_groupby_to_df(res, pipeline):
     else:
         # We normalize the index name to be more pythonic.
         idx_name = id_part.replace('$', '').replace('.', '_')
-        df = pd.DataFrame(res).set_index('_id').rename_axis(idx_name)
+        df = pd.DataFrame(list(res)).set_index('_id').rename_axis(idx_name)
     
     return df
 
