@@ -76,8 +76,15 @@ class ProjectPaths:
         self.figs = self.proj / 'reports' / 'figures'
         self.case_figs = self.figs / '{lc}' / '{cc}' / '{year_from}-{year_to}'
         self.resident_ids = self.interim_data / '{cc}' / 'resident_ids_{year_from}-{year_to}.txt'
+        self.user_cells_from_gps = self.interim_data / '{cc}' / 'user_cells_from_gps_{cell_kind}_{year_from}-{year_to}.parquet'
+        self.user_places = self.interim_data / '{cc}' / 'user_places_{year_from}-{year_to}.parquet'
+        self.user_residence_cell = self.interim_data / '{cc}' / 'user_residence_cell_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+        self.user_mistakes = self.interim_data / '{cc}' / 'user_mistakes_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+        self.rule_category = self.interim_data / '{cc}' / 'rule_category.csv'
 
-
+        
     def partial_format(self, **kwargs):
-        self.case_figs = Path(partial_format(str(self.case_figs), **kwargs))
-        self.resident_ids = Path(partial_format(str(self.resident_ids), **kwargs))
+        for attr in (
+            'case_figs', 'resident_ids', 'user_cells_from_gps', 'user_places', 'user_residence_cell', 'user_mistakes', 'rule_category'
+        ):
+            setattr(self, attr, Path(partial_format(str(getattr(self, attr)), **kwargs)))
