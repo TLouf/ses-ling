@@ -146,16 +146,23 @@ def get_tweets_df_cols_dict(add_cols=None):
 
 
 def tweets_res_to_dict(
-    res, cols_dict=None, add_cols=None, coords_as: Literal['list', 'xy'] = 'list'
-):
+    res: qr.Result, cols_dict=None, add_cols=None,
+    coords_as: Literal['list', 'xy'] = 'xy'
+) -> dict:
+    '''
+    Iterates a query's result `res` to populate a dictionary which gives for each output
+    field present in `cols_dict` (default None, all `TWEETS_COLS` fields), a list of the
+    values taken for each tweet.
+    '''
     if cols_dict is None:
         cols_dict = get_tweets_df_cols_dict(add_cols=add_cols)
     # res iterator over a result
     assign_dict = {
         col: [f.split('.') for f in col_dict['field']]
         for col, col_dict in cols_dict.items()
+        if col_dict.get('keep', True)
     }
-    tweets_dict = {key: [] for key in cols_dict.keys()}
+    tweets_dict = {key: [] for key in assign_dict.keys()}
 
     last_id = ''
     for t in res:
