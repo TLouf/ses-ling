@@ -22,6 +22,15 @@ import ses_ling.utils.geometry as geo_utils
 
 
 LOGGER = logging.getLogger(__name__)
+TWEETS_COLS = {
+    'id': {'field': 'id', 'dtype': 'string'},
+    'user_id': {'field': 'user.id', 'dtype': 'string'},
+    'text': {'field': ['extended_tweet.full_text', 'text'], 'dtype': 'string'},
+    'coordinates': {'field': 'coordinates.coordinates', 'dtype': 'object'},
+    'place_id': {'field': 'place.id', 'dtype': 'string'},
+    'created_at': {'field': 'created_at', 'dtype': 'datetime64[ns]'},
+    'source': {'field': 'source', 'dtype': 'string'},
+}
 
 
 def places_from_mongo(db, filter, add_fields=None, tweets_filter=None, tweets_colls=None):
@@ -102,16 +111,15 @@ def places_from_mongo_tweets(db, colls: str | list, tweets_filter, add_fields=No
 
 
 def tweets_from_mongo(
-    db, filter, colls: str | list, add_cols=None, limit=-1,
-    coords_as: Literal['list', 'xy'] = 'list'
-):
-    # TODO: change default coords_as when checked everything's up to date
+    db, filter, colls: str | list, cols=None, limit=-1,
+    coords_as: Literal['list', 'xy'] = 'xy'
+) -> pd.DataFrame:
     '''
     Return the DataFrame of tweets in the collections `colls` of the database `db`
     matching `filter`. add_cols, if specified, should be a dictionary where each element
     is of the form: <output_field>: {'field': <input_field(s)>, 'dtype': <dtype>}
     '''
-    cols_dict = get_tweets_df_cols_dict(add_cols=add_cols)
+    cols_dict = get_tweets_df_cols_dict(cols=cols)
     fields_to_extract = []
     for d in cols_dict.values():
         if isinstance(d['field'], str):
@@ -124,6 +132,8 @@ def tweets_from_mongo(
             tweets, cols_dict=cols_dict, coords_as=coords_as
         )
 
+    # Use `tweets_dict.keys()` and not `cols_dict.keys()` because only some fields may
+    # be kept, although they are extracted from the DB.
     dtypes = {
         col: cols_dict.get(col, {}).get('dtype')
         for col in tweets_dict.keys()
@@ -132,16 +142,28 @@ def tweets_from_mongo(
     return tweets_df
 
 
-def get_tweets_df_cols_dict(add_cols=None):
-    if add_cols is None:
-        add_cols = {}
-    default_cols = {
-        'id': {'field': 'id', 'dtype': 'string'},
-        'text': {'field': ['extended_tweet.full_text', 'text'], 'dtype': 'string'},
-        'coordinates': {'field': 'coordinates.coordinates', 'dtype': 'object'},
-        'place_id': {'field': 'place.id', 'dtype': 'string'},
-    }
-    cols_dict = {**default_cols, **add_cols}
+def get_tweets_df_cols_dict(cols: list[str | dict] = None):
+    '''
+    Returns a dictionary which, for each output column (dict key), give the name of the
+    field in the DB, the output dtype and optionally whether it should be kept (via the
+    `keep` keyword, only useful for 'id' a priori). It is constructed based on the input
+    elements of `cols`: a str will select a key from the default `TWEETS_COLS`, and a
+    dictionary of the format of the ones in `TWEETS_COLS` will give custom info, which
+    is more flexible.
+    '''
+    if cols is None:
+        cols_dict = TWEETS_COLS.copy()
+    else:
+        cols_dict = {}
+        for c in cols:
+            if isinstance(c, str):
+                cols_dict[c] = TWEETS_COLS[c].copy()
+            elif isinstance(c, dict):
+                cols_dict = {**cols_dict, **c}
+        # id always needs to be included to detect duplicates, but if not provided,
+        # interpret as the user does not want it in the output dataframe.
+        if 'id' not in cols_dict:
+            cols_dict['id'] = {**TWEETS_COLS['id'], **{'keep': False}}
     return cols_dict
 
 
