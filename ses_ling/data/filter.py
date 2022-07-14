@@ -8,7 +8,7 @@ import ses_ling.data.access as data_access
 
 def get_consec_months_in_year(year, colls, pre_filter=None):
     db = f'twitter_{year}'
-    f = data_access.base_mongo_filter(year)
+    f = data_access.base_tweets_filter(year)
     if pre_filter is not None:
         f = f & pre_filter
 
@@ -100,7 +100,7 @@ def get_resident_ids(user_activity_by_month, nr_consec_months=3) -> list:
 
 def get_user_activity_by_source(year, colls, pre_filter=None):
     db = f'twitter_{year}'
-    f = data_access.base_mongo_filter(year)
+    f = data_access.base_tweets_filter(year)
     if pre_filter is not None:
         f = f & pre_filter
 
@@ -181,7 +181,7 @@ def get_persons(user_activity_df, max_hourly_rate=10) -> list:
 
 def get_bot_ids(year, colls, pre_filter=None, max_hourly_rate=10):
     db = f'twitter_{year}'
-    f = data_access.base_mongo_filter(year)
+    f = data_access.base_tweets_filter(year)
     if pre_filter is not None:
         f = f & pre_filter
 
