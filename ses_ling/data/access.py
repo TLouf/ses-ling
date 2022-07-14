@@ -310,7 +310,7 @@ def dt_chunk_filters_mongo(db, colls: str | list, filter, start, end, chunksize=
 
     chunk_filters = []
     for i in range(npartitions):
-        f = qr.Filter()
+        f = filter.copy()
         f.greater_or_equals('created_at', dt_bounds[i])
         f.less_than('created_at', dt_bounds[i+1])
         chunk_filters.append(f)
