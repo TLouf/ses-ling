@@ -50,16 +50,12 @@ def get_consec_months_in_year(year, colls, pre_filter=None):
 
 
 def agg_consec_months(year_from, year_to, colls, pre_filter=None):
+    user_months_df = pd.DataFrame()
     for year in range(year_from, year_to + 1):
-        if year == year_from:
-            user_months_df = get_consec_months_in_year(
-                year, colls, pre_filter=pre_filter
-            )
-        else:
-            user_months_df = pd.concat([
-                user_months_df,
-                get_consec_months_in_year(year, colls, pre_filter=pre_filter),
-            ])
+        user_months_df = pd.concat([
+            user_months_df,
+            get_consec_months_in_year(year, colls, pre_filter=pre_filter),
+        ])
     return user_months_df
 
 

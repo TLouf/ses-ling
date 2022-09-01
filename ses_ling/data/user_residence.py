@@ -72,20 +72,18 @@ def visited_places_in_year(
     return visited_places
 
 
-def agg_visited_places(year_from, year_to, colls, resident_ids, timezone='UTC', pre_filter=None):
+def agg_visited_places(
+    year_from, year_to, colls, resident_ids, timezone='UTC', pre_filter=None
+):
+    visited_places = pd.DataFrame()
     for year in range(year_from, year_to + 1):
         LOGGER.info(f' Starting on {year}')
-        if year == year_from:
-            visited_places = visited_places_in_year(
+        visited_places = visited_places.add(
+            visited_places_in_year(
                 year, colls, resident_ids, timezone=timezone, pre_filter=pre_filter
-            )
-        else:
-            visited_places = visited_places.add(
-                visited_places_in_year(
-                    year, colls, resident_ids, timezone=timezone, pre_filter=pre_filter
-                ),
-                fill_value=0,
-            )
+            ),
+            fill_value=0,
+        )
         nr_users, nr_places, _ = visited_places.index.levshape
         LOGGER.info(f'Have info on {nr_users} users in {nr_places} places.')
 
@@ -106,6 +104,8 @@ def points_to_cells_in_year(
     pre_filter = data_access.gps_filter(pre_filter.copy())
     chunk_filters = data_access.dt_chunk_filters_mongo(db, colls, pre_filter, start, end, chunksize=20e6)
     print(len(chunk_filters))
+    cell_counts = pd.DataFrame()
+    count_by = ['user_id', 'cell_id', 'is_daytime']
 
     for i, chunk_filter in enumerate(chunk_filters):
         # f = data_access.gps_filter(chunk_filter)
@@ -124,11 +124,10 @@ def points_to_cells_in_year(
             latlon_cells_gdf[['geometry']], how='inner', predicate='intersects'
         )
         tweets = tweets.rename(columns={'index_right': 'cell_id'})
-        new_cell_counts = tweets.groupby(['user_id', 'cell_id', 'is_daytime']).size().rename('count')
-        if i == 0:
-            cell_counts = new_cell_counts
-        else:
-            cell_counts = cell_counts.add(new_cell_counts, fill_value=0)
+        cell_counts = cell_counts.add(
+            tweets.groupby(count_by).size().rename('count'),
+            fill_value=0,
+        )
 
     return cell_counts
 
@@ -138,20 +137,15 @@ def agg_points_to_cells(
     year_from, year_to, colls, resident_ids, cells_gdf, pre_filter=None, timezone='UTC'
 ):
     latlon_cells_gdf = cells_gdf.to_crs('epsg:4326')
+    cell_counts = pd.DataFrame()
     for year in range(year_from, year_to + 1):
-        if year == year_from:
-            cell_counts = points_to_cells_in_year(
+        cell_counts = cell_counts.add(
+            points_to_cells_in_year(
                 year, colls, resident_ids, latlon_cells_gdf,
                 pre_filter=pre_filter, timezone=timezone
-            )
-        else:
-            cell_counts = cell_counts.add(
-                points_to_cells_in_year(
-                    year, colls, resident_ids, latlon_cells_gdf,
-                    pre_filter=pre_filter, timezone=timezone
-                ),
-                fill_value=0,
-            )
+            ),
+            fill_value=0,
+        )
     # to_frame() becaue eg `to_parquet` not implemented for series...
     return cell_counts.astype(int).to_frame()
 
