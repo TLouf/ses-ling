@@ -10,6 +10,8 @@ import pygeos
 import libpysal
 import geopandas as geopd
 
+import ses_ling.utils.paths as paths_utils
+
 def haversine(lon1, lat1, lon2, lat2, R=6367e3):
     lon1 = lon1 * np.pi / 180
     lat1 = lat1 * np.pi / 180
@@ -135,6 +137,20 @@ def create_grid(shape_df, cell_size, cc, xy_proj='epsg:3857', intersect=False,
 
     cells_df.cell_size = cell_size
     return cells_df, cells_in_shape_df, Nx-1, Ny-1
+
+
+def load_ext_cells(fname, index_col, xy_proj='epsg:3857'):
+    paths = paths_utils.ProjectPaths()
+    cells_path = str(paths.shp_file_fmt).format(fname)
+    cells_geodf = geopd.read_file(cells_path)
+    cells_geodf.columns = cells_geodf.columns.str.lower()
+    cells_geodf = (
+        cells_geodf.set_index(index_col.lower())
+         .sort_index()
+        #  .rename_axis('cell_id')
+         .to_crs(xy_proj)
+    )
+    return cells_geodf
 
 
 def extract_shape(raw_shape_df, cc, bbox=None, latlon_proj='epsg:4326',
