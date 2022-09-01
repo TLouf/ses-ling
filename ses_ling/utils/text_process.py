@@ -1,6 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import requests
 import re
+
+import lxml.etree
 import numpy as np
 import pandas as pd
 try:
@@ -256,3 +259,78 @@ def yearly_vocab(user_corpora: pd.DataFrame, words_index: pd.Series):
     user_corpora.loc[idx_users_with_data, 'rank_arr'] = list_arr
     return user_corpora
 
+
+def parse_grammar(source):
+    print("Parsing...")
+    if source.startswith('http'):
+        source = requests.get(source).content
+        tree = lxml.etree.fromstring(source)
+    else:
+        tree = lxml.etree.parse(source)
+
+    list_cats = []
+    for cat in tree.iterfind('category'):
+        cat_dict = {**cat.attrib}
+        # cat_dict['rule_groups'] = [
+        #     {'id': rule.attrib['id'], 'rules': [{**rule.attrib}]}
+        #     for rule in cat.iterfind('rule')
+        # ]
+        # cat_dict['rule_groups'].extend([
+        #     {**rg.attrib, 'rules': [{**r.attrib} for r in rg.iterfind('rule')]}
+        #     for rg in cat.iterfind('rulegroup')
+        # ])
+        cat_dict['rules'] = [
+            {**rule.attrib, 'is_rule_group': False}
+            for rule in cat.iterfind('.//rule')
+            if 'id' in rule.attrib
+        ]
+        # rulegroups are not actually a level above rules, the rules they contain do not
+        # have an ID
+        cat_dict['rules'].extend([
+            {**rg.attrib, 'is_rule_group': True}
+            for rg in cat.iterfind('rulegroup')
+        ])
+        list_cats.append(cat_dict)
+
+    nr_rules = sum([len(c['rules']) for c in list_cats])
+    print(f'Found {len(list_cats)} categories containing {nr_rules} rules.')
+    return list_cats
+
+
+def parse_online_grammar(lc):
+    # remain rules written in java () not in grammar.xml...
+    # https://github.com/languagetool-org/languagetool/blob/master/languagetool-language-modules/{lc}/src/main/java/org/languagetool/rules/{lc}/*Rule.java.
+    #  But almost neer a category in those, so...
+    print("Downloading grammar from LT's repo for parsing...")
+    url_format = "https://raw.githubusercontent.com/languagetool-org/languagetool/master/languagetool-language-modules/{lc}/src/main/resources/org/languagetool/rules/{lc}/grammar.xml"
+    source = url_format.format(lc=lc)
+    list_cats = parse_grammar(source)
+    lt_cats_dict = {'categories': list_cats, 'source': source}
+    return lt_cats_dict
+
+
+def get_lt_rules(lt_cats_dict):
+    lt_rules = (
+        pd.DataFrame
+         .from_records(lt_cats_dict['categories'], columns=['id', 'rules'])
+         .explode('rules')
+    )
+    lt_rules = (
+        pd.DataFrame.from_records(
+            lt_rules['rules'].values.tolist(), index=lt_rules.index
+        )
+         .join(lt_rules['id'].rename('cat_id').drop_duplicates())
+         .set_index(['cat_id', 'id'])
+         .rename_axis(index={'id': 'rule_id'})
+    )
+
+    return lt_rules
+
+
+def get_lt_categories(lt_cats_dict):
+    lt_categories = (
+        pd.DataFrame
+         .from_records(lt_cats_dict['categories'], exclude=['rules'])
+         .set_index('id')
+    )
+    return lt_categories
