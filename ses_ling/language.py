@@ -26,19 +26,15 @@ class Region:
     cc: str
     lc: str
     all_cntr_shapes: InitVar[geopd.GeoDataFrame]
-    # all these optional InitVar tell you what's needed in countries.json to run the
-    # analysis for a country. Other option is to have single variable cc_dict, although
-    # that's more compact it also makes it harder to track what should be inside this
-    # dict and thus passed to __post_init__. BUt at tthe same time allows to retain
-    # whole cc_dict to inspect easily and reuse anywhere... TODO have to decide on this.
+    # If many more such dicts (3 atm), switch to init_dict solution
+    ses_data_options: dict
     shapefile_col: InitVar[str] = 'FID'
     shapefile_val: InitVar[str | None] = None
     # not a problem to default with mutable because this initvar is never touched
     extract_shape_kwargs: InitVar[dict] = {'simplify_tol': 100}
-    cell_shapefiles: InitVar[dict] = {}
-    ses_data_options: InitVar[dict] = {}
-    cell_levels_corr_files: InitVar[dict] = {}
-    ses_idx: InitVar[str | None] = None # except this one, to set manually
+    cell_shapefiles: dict = field(default_factory=dict)
+    cell_levels_corr_files: dict = field(default_factory=dict)
+    ses_idx: str | None = None
     mongo_coll: str = ''
     year_from: int = 2015
     year_to: int = 2021
@@ -61,7 +57,6 @@ class Region:
 
     def __post_init__(
         self, all_cntr_shapes, shapefile_col, shapefile_val, extract_shape_kwargs,
-        cell_shapefiles, ses_data_options, cell_levels_corr_files, ses_idx
     ):
         if self.shape_geodf is None:
             shapefile_val = shapefile_val or self.cc
@@ -70,25 +65,23 @@ class Region:
                 all_cntr_shapes.loc[mask], self.cc, xy_proj=self.xy_proj, **extract_shape_kwargs
             )
         if self.cells_geodf is None:
-            self.load_cells_geodf(cell_shapefiles)
+            self.load_cells_geodf()
 
-        if ses_idx is None:
-            ses_idx = list(ses_data_options.keys())[0]
+        if self.ses_idx is None:
+            self.ses_idx = list(self.ses_data_options.keys())[0]
 
         if self.ses_df is None:
-            # TODO: easy way to load other `ses_idx`. easier if cc_dict was attr...
-            self.ses_df = ses_data.read_df(
-                self.paths.ext_data, **ses_data_options[ses_idx]
-            )
+            self.ses_df = self.load_ses_df()
 
         if self.cell_lvls_corr is None:
             # may not be used but does not cost much to load (just a small csv)
+            cell_shapefile_kind = self.cell_shapefiles[self.cell_size]["kind"]
             corr_path = (
                 self.paths.ext_data
-                / cell_levels_corr_files[cell_shapefiles[self.cell_size]["kind"]]
+                / self.cell_levels_corr_files[cell_shapefile_kind]
             )
             agg_level = self.cells_geodf.index.name
-            weight_col = ses_data_options[ses_idx]['weight_col']
+            weight_col = self.ses_data_options[self.ses_idx]['weight_col']
             self.cell_levels_corr = spatial_agg.levels_corr(
                 corr_path, self.ses_df, agg_level, weight_col=weight_col
             )
@@ -120,7 +113,7 @@ class Region:
         with open(file_path) as f:
             countries_dict = json.load(f)
         d = {**countries_dict[cc], **kwargs}
-        return Region.from_dict(cc, lc, all_cntr_shapes, **d)
+        return Region(cc, lc, all_cntr_shapes, **d)
 
 
     def to_dict(self):
@@ -155,10 +148,15 @@ class Region:
         self._paths = None
 
 
-    def load_cells_geodf(self, cell_shapefiles):
+    def load_cells_geodf(self, cell_size=None):
+        # other way if to make cell_size a property, and its setter calls this function
+        # without this initial if, and without the kwarg
+        if cell_size is not None:
+            self.cell_size = cell_size
+
         if isinstance(self.cell_size, str):
-            fname = cell_shapefiles[self.cell_size]['fname']
-            index_col = cell_shapefiles[self.cell_size]['index_col']
+            fname = self.cell_shapefiles[self.cell_size]['fname']
+            index_col = self.cell_shapefiles[self.cell_size]['index_col']
             self.cells_geodf = geo_utils.load_ext_cells(
                 fname, index_col, xy_proj=self.xy_proj
             )
@@ -167,6 +165,14 @@ class Region:
                 self.shape_geodf, self.cell_size, self.cc,
                 xy_proj=self.xy_proj, intersect=True
             )
+
+    def load_ses_df(self, ses_idx=None):
+        if ses_idx is not None:
+            self.ses_idx = ses_idx
+
+        return ses_data.read_df(
+            self.paths.ext_data, **self.ses_data_options[self.ses_idx]
+        )
 
     @property
     def user_residence_cell(self):
@@ -266,7 +272,7 @@ class Language:
                     Region.from_dict(
                         cc, self.lc, all_cntr_shapes,
                         year_from=self.year_from, year_to=self.year_to,
-                        **_cc_init_params[cc], **countries_dict[cc]
+                        **{**countries_dict[cc], **_cc_init_params[cc]}
                     )
                 )
         # sort a posteriori
@@ -420,7 +426,11 @@ class Language:
             agg_metrics = spatial_agg.get_agg_metrics(
                 r.ses_df, r.cell_levels_corr, metric_col=metric_col
             )
-            self.cells_geodf.update(agg_metrics)
+            
+            self.cells_geodf = (
+                self.cells_geodf.drop(columns=agg_metrics.columns, errors='ignore')
+                 .join(agg_metrics)
+            )
 
 
     def get_width_ratios(self, ratio_lgd=None):
