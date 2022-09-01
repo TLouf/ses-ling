@@ -1,6 +1,13 @@
+from __future__ import annotations
+from tqdm import tqdm
 import numpy as np
+import scipy.sparse
 import pandas as pd
-from shapely.geometry import Point, Polygon, MultiPolygon, box
+from shapely.geometry import (
+    Point, LineString, MultiLineString, Polygon, MultiPolygon, box
+)
+import pygeos
+import libpysal
 import geopandas as geopd
 
 def haversine(lon1, lat1, lon2, lat2, R=6367e3):
@@ -323,3 +330,100 @@ def calc_bbox_area(min_lon, min_lat, max_lon, max_lat, R=6367e3):
     # from float or array or floats
     area = R**2 * np.pi * (np.cos(max_lon) - np.cos(min_lon)) * (max_lat - min_lat) / 180
     return area
+
+
+def iter_w_neighbours(
+    cells_gdf: geopd.GeoDataFrame| None = None,
+    w: libpysal.weights.W | None = None,
+    output_data_container: list | dict | np.ndarray | None = None,
+    show_progress: bool = True,
+) -> list[LineString | MultiLineString]:
+    '''
+    Returns the list of (Multi)LineStrings corresponding to the common boundaries of
+    cells in `cells_gdf`, with help from the libpysal `W` instance `w` giving each
+    cell's neighbors, to avoid unnecessary computations.
+    list of lists or dict of dicts
+    '''
+    if output_data_container is not None:
+        og_data_container = output_data_container.copy()
+    if w is None:
+        if cells_gdf is None:
+            raise ValueError('Provide at least one of  `cells_gdf` or `w`.')
+        w = libpysal.weights.Rook.from_dataframe(cells_gdf)
+
+    it = tqdm(w, total=w.n) if show_progress else w
+    for i, neigh_dict in it:
+        if output_data_container is not None:
+            output_data_container[i] = og_data_container.copy()
+        for j in neigh_dict.keys():
+            if j > i:
+                yield i, j, output_data_container
+
+
+def common_boundaries(
+    cells_gdf: geopd.GeoDataFrame,
+    # w: libpysal.weights.W | None = None,
+    show_progress: bool = True
+) -> list[LineString | MultiLineString]:
+    '''
+    Returns the list of (Multi)LineStrings corresponding to the common boundaries of
+    cells in `cells_gdf`, with help from the libpysal `W` instance `w` giving each
+    cell's neighbors, to avoid unnecessary computations.
+    '''
+    nr_cells = cells_gdf.shape[0]
+    pygeos_cell_boundaries = pygeos.from_shapely(cells_gdf.geometry.boundary)
+    shared_boundary = {}
+    # Force iloc ids to ensure access to `pygeos_cell_boundaries`.
+    w = libpysal.weights.Rook.from_dataframe(cells_gdf, ids=list(range(nr_cells)))
+    it = iter_w_neighbours(
+        cells_gdf=cells_gdf, w=w, show_progress=show_progress,
+        output_data_container=shared_boundary
+    )
+    for i, j, shared_boundary in it:
+        shared_boundary[i][j] = (
+            pygeos.shared_paths(
+                pygeos_cell_boundaries[i], pygeos_cell_boundaries[j]
+            )
+        )
+    return shared_boundary
+
+
+def measure_common_boundaries(
+    cells_gdf: geopd.GeoDataFrame,
+    # w: libpysal.weights.W | None = None,
+    show_progress: bool = True
+) -> np.ndarray:
+    '''
+    Returns the array of lengths of the common boundaries of cells in `cells_gdf`, with
+    help from the libpysal `W` instance `w` giving each cell's neighbors, to avoid
+    unnecessary computations.
+    
+    SInce libpysal does not actually use the gdf's index to build w's, but might in the
+    future, have to force everything to integer-based indexing. Otherwise could simply
+    have `pygeos_cell_boundaries` as GeoSeries and .loc from it to avoid forcing a w
+    with iloc ids.
+    '''
+    nr_cells = cells_gdf.shape[0]
+    pygeos_cell_boundaries = pygeos.from_shapely(cells_gdf.geometry.boundary)
+    
+    rows = []
+    cols = []
+    shared_perim = []
+    # Force iloc ids to ensure access to `pygeos_cell_boundaries`.
+    w = libpysal.weights.Rook.from_dataframe(cells_gdf, ids=list(range(nr_cells)))
+    it = iter_w_neighbours(cells_gdf=cells_gdf, w=w, show_progress=show_progress)
+    for i, j, _ in it:
+        rows.append(i)
+        cols.append(j)
+        shared_perim.append(
+            pygeos.length(
+                pygeos.shared_paths(
+                    pygeos_cell_boundaries[i], pygeos_cell_boundaries[j]
+                )
+            )
+        )
+
+    length_common_boundaries = scipy.sparse.coo_array(
+        (shared_perim, (rows, cols)), shape=(nr_cells, nr_cells)
+    )
+    return length_common_boundaries
