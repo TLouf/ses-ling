@@ -248,15 +248,14 @@ class Language:
     nighttime_acty_th: float = 0.5
     all_acty_th: float = 0.1
     count_th: int = 3
-    cell_tokens_th: float = 1e4 # used in `cell_is_relevant` and `make_cell_counts_mask`
     # Data containers (frames, arrays)
     cells_geodf: geopd.GeoDataFrame = field(init=False)
     lt_rules: pd.DataFrame = field(init=False)
     lt_categories: pd.DataFrame = field(init=False)
+    # TODO: combine next two in _user_df?
     _user_residence_cell: pd.DataFrame | None = None
-    _user_mistakes: pd.DataFrame | None = None
     _user_corpora: pd.DataFrame | None = None
-    cell_counts: pd.DataFrame | None = None
+    _user_mistakes: pd.DataFrame | None = None
     width_ratios: np.ndarray | None = None
 
     def __post_init__(self, _cc_init_params, all_cntr_shapes, countries_dict):
@@ -342,7 +341,7 @@ class Language:
     def to_dict(self):
         # custom to_dict to keep only parameters that can be in save path
         list_attr = [
-            'lc', 'readable', 'str_cc', 'cell_tokens_th', 'year_from', 'year_to',
+            'lc', 'readable', 'str_cc', 'year_from', 'year_to',
             'nighttime_acty_th', 'all_acty_th', 'count_th'
         ]
         return {attr: getattr(self, attr) for attr in list_attr}
