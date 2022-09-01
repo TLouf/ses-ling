@@ -1,0 +1,675 @@
+{
+    "US": {
+        "readable": "the USA",
+        "mongo_coll": "northern_america",
+        "xy_proj": "ESRI:102005",
+        "local_langs": ["en"],
+        "timezone": "CET",
+        "shape_bbox": [-126, 20, -65, 51],
+        "cell_size": 75e3,
+        "max_place_area": 2.5e10
+        },
+	"CA": {
+        "readable": "Canada",
+        "mongo_coll": "northern_america",
+        "xy_proj": "EPSG:3978",
+        "local_langs": ["en", "fr"],
+        "shape_bbox": [-133, 41, -52, 55.5],
+        "cell_size": 75e3,
+        "max_place_area": 2.5e10,
+        "regions": {
+            "Quebec": {
+                "readable": "Quebec",
+                "xy_proj": "EPSG:6624",
+                "timezone": "EST",
+                "local_langs": ["en", "fr"],
+                "shapefile_name": "Quebec.shp",
+                "shapefile_name_col": "PRENAME",
+                "shapefile_name_val": "Quebec",
+                "max_place_area": 1e10
+                }
+            }
+        },
+    "IE": {
+        "readable": "Ireland",
+        "mongo_coll": "northern_europe",
+        "xy_proj": "EPSG:2157",
+        "local_langs": ["en"],
+        "timezone": "Europe/Dublin",
+        "max_place_area": 5e9
+        },
+    "GB": {
+        "readable": "Great Britain",
+        "mongo_coll": "great_britain",
+        "xy_proj": "EPSG:27700",
+        "local_langs": ["en"],
+        "timezone": "Europe/London",
+        "max_place_area": 5e9,
+        "shapefile_val": "UK",
+        "cell_shapefiles": {
+            "LSOA_BGC": {
+                "fname": "Lower_Layer_Super_Output_Areas_(December_2011)_Boundaries_Generalised_Clipped_(BGC)_EW_V3",
+                "index_col": "LSOA11CD",
+                "kind": "census"
+            },
+            "LSOA_BSC": {
+                "fname": "Lower_Layer_Super_Output_Areas_(December_2011)_Boundaries_Super_Generalised_Clipped_(BSC)_EW_V3",
+                "index_col": "LSOA11CD",
+                "kind": "census"
+            },
+            "MSOA_BGC": {
+                "fname": "Middle_Layer_Super_Output_Areas_(December_2011)_Boundaries_Generalised_Clipped_(BGC)_EW_V3",
+                "index_col": "MSOA11CD",
+                "kind": "census"
+            }
+        },
+        "cell_levels_corr_files": {
+            "census": "Output_Area_to_Lower_Layer_Super_Output_Area_to_Middle_Layer_Super_Output_Area_to_Local_Authority_District__December_2020__Lookup_in_England_and_Wales.csv"
+        },
+        "ses_data_options": {
+            "IMD": {
+                "fname": "Indices_of_Multiple_Deprivation_(IMD)_2019/Indices_of_Multiple_Deprivation_(IMD)_2019.shp",
+                "index_col": "lsoa11cd",
+                "weight_col": "totpop",
+                "score_cols": [".*score"]
+            }
+        }
+    },
+    "JM": {
+        "readable": "Jamaica",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24200",
+        "local_langs": ["en"],
+        "max_place_area": 2e10,
+        "cell_size": 5e6
+        },
+    "BZ": {
+        "readable": "Belize",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:32616",
+        "local_langs": ["en"],
+        "max_place_area": 5e10,
+        "cell_size": 500e3
+        },
+    "IN": {
+        "readable": "India",
+        "mongo_coll": "southern_asia",
+        "xy_proj": "EPSG:24378",
+        "local_langs": ["en"],
+        "max_place_area": 2.5e10,
+        "cell_size": 75e3
+        }, 
+    "NZ": {
+        "readable": "New Zealand",
+        "mongo_coll": "australia_and_new_zealand",
+        "xy_proj": "EPSG:27200",
+        "local_langs": ["en"],
+        "timezone": "Pacific/Auckland",
+        "max_place_area": 5e9
+        },
+    "AU": {
+        "readable": "Australia",
+        "mongo_coll": "australia_and_new_zealand",
+        "xy_proj": "EPSG:3112",
+        "local_langs": ["en"],
+        "max_place_area": 2.5e10,
+        "cell_size": 75e3
+        },
+    "ZA": {
+        "readable": "South Africa",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:32734",
+        "local_langs": ["en", "af", "zu", "xh"],
+        "timezone": "Africa/Johannesburg",
+        "max_place_area": 2.5e10,
+        "cell_size": 75e3
+        },
+    "NG": {
+        "readable": "Nigeria",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:32632",
+        "local_langs": ["en"],
+        "max_place_area": 2.5e10,
+        "cell_size": 75e3
+        },
+    "GH": {
+        "readable": "Ghana",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:25000",
+        "local_langs": ["en"],
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "KE": {
+        "readable": "Kenya",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:21097",
+        "local_langs": ["en"],
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "UG": {
+        "readable": "Uganda",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:21097",
+        "local_langs": ["en"],
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "PT": {
+        "readable": "Portugal",
+        "mongo_coll": "southern_europe",
+        "xy_proj": "EPSG:3763",
+        "local_langs": ["pt"],
+        "max_place_area": 5e9
+        },
+    "BR": {
+        "readable": "Brazil",
+        "mongo_coll": "brasil",
+        "xy_proj": "EPSG:5641",
+        "local_langs": ["pt"],
+        "max_place_area": 3e10,
+        "cell_size": 75e3
+        },
+    "AO": {
+        "readable": "Angola",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:9159",
+        "local_langs": ["pt"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "MZ": {
+        "readable": "Mozambique",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:9159",
+        "local_langs": ["pt"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "LV": {
+        "readable": "Latvia",
+        "mongo_coll": "northern_europe",
+        "xy_proj": "EPSG:3059",
+        "local_langs": ["lv", "ru"],
+        "timezone": "EET"
+        },
+    "EE": {
+        "readable": "Estonia",
+        "mongo_coll": "northern_europe",
+        "xy_proj": "EPSG:3059",
+        "local_langs": ["et", "ru"],
+        "timezone": "EET"
+        },
+    "FI": {
+        "readable": "Finland",
+        "mongo_coll": "northern_europe",
+        "xy_proj": "EPSG:3067",
+        "local_langs": ["fi", "sv", "ru"],
+        "timezone": "Europe/Helsinki",
+        "max_place_area": 3e10
+        },
+    "CY": {
+        "readable": "Cyprus",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:6312",
+        "local_langs": ["el", "tr"],
+        "timezone": "Asia/Nicosia"
+        },
+    "DZ": {
+        "readable": "Algeria",
+        "mongo_coll": "northern_africa",
+        "xy_proj": "EPSG:30729",
+        "local_langs": ["ar", "fr"],
+        "timezone": "Africa/Algiers",
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "MA": {
+        "readable": "Morocco",
+        "mongo_coll": "northern_africa",
+        "xy_proj": "EPSG:26191",
+        "local_langs": ["ar", "fr"],
+        "timezone": "Africa/Casablanca",
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "TN": {
+        "readable": "Tunisia",
+        "mongo_coll": "northern_africa",
+        "xy_proj": "EPSG:30729",
+        "local_langs": ["ar", "fr"],
+        "timezone": "Africa/Tunis",
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "EG": {
+        "readable": "Egypt",
+        "mongo_coll": "northern_africa",
+        "xy_proj": "EPSG:22994",
+        "local_langs": ["ar", "en"],
+        "timezone": "Africa/Cairo",
+        "max_place_area": 2e10,
+        "cell_size": 75e3
+        },
+    "IQ": {
+        "readable": "Iraq",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:22994",
+        "local_langs": ["ar"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "IL": {
+        "readable": "Israel",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2039",
+        "max_place_area": 1e15,
+        "cell_size": 1e9,
+        "local_langs": ["iw", "ar", "en", "ru"],
+        "timezone": "Asia/Jerusalem"
+        },
+    "LB": {
+        "readable": "Lebanon",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:22780",
+        "max_place_area": 1e15,
+        "cell_size": 1e9,
+        "local_langs": ["ar", "fr"],
+        "timezone": "Asia/Beirut"
+        },
+    "JO": {
+        "readable": "Jordan",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2039",
+        "local_langs": ["ar"],
+        "max_place_area": 2e10,
+        "cell_size": 75e3
+        },
+    "SA": {
+        "readable": "Saudi Arabia",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "AE": {
+        "readable": "United Arab Emirates",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 2e10,
+        "cell_size": 75e3
+        },
+    "QA": {
+        "readable": "Qatar",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 5e9,
+        "cell_size": 75e3
+        },
+    "BH": {
+        "readable": "Bahrain",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 5e9,
+        "cell_size": 75e3
+        },
+    "OM": {
+        "readable": "Oman",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 2e10,
+        "cell_size": 75e3
+        },
+    "YE": {
+        "readable": "Yemen",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "KW": {
+        "readable": "Kuwait",
+        "mongo_coll": "western_asia",
+        "xy_proj": "EPSG:2318",
+        "local_langs": ["ar"],
+        "max_place_area": 5e9,
+        "cell_size": 75e3
+        },
+    "LU": {
+        "readable": "Luxembourg",
+        "mongo_coll": "western_europe",
+        "xy_proj": "EPSG:2169",
+        "local_langs": ["fr", "de", "lb"],
+        "timezone": "Europe/Luxembourg"
+        },
+    "PY": {
+        "readable": "Paraguay",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:32720",
+        "local_langs": ["es", "gn", "pt"],
+        "timezone": "America/Asuncion",
+        "max_place_area": 5e10,
+        "cell_size": 75e3
+        },
+    "UY": {
+        "readable": "Uruguay",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:5383",
+        "local_langs": ["es", "pt"],
+        "timezone": "America/Montevideo",
+        "max_place_area": 5e10,
+        "cell_size": 75e3
+        },
+    "AR": {
+        "readable": "Argentina",
+        "mongo_coll": "argentina",
+        "xy_proj": "EPSG:5343",
+        "local_langs": ["es"],
+        "timezone": "America/Argentina/Buenos_Aires",
+        "cell_size": 75e3
+        },
+    "MY": {
+        "readable": "Malaysia",
+        "mongo_coll": "south_eastern_asia",
+        "xy_proj": "EPSG:23834",
+        "local_langs": ["ms", "en", "zh"],
+        "timezone": "MST",
+        "max_place_area": 5e10
+        },
+    "ID": {
+        "readable": "Indonesia",
+        "mongo_coll": "indonesia",
+        "xy_proj": "EPSG:3001",
+        "local_langs": ["id", "ms", "jw", "su"],
+        "timezone": "Asia/Jakarta",
+        "max_place_area": 5e10,
+        "min_poly_area": 4e9
+        },
+    "ES": {
+        "readable": "Spain",
+        "mongo_coll": "spain",
+        "xy_proj": "EPSG:2062",
+        "local_langs": ["es", "ca"],
+        "timezone": "CET",
+        "regions": {
+            "Catalonia": {
+                "readable": "Catalonia",
+                "xy_proj": "EPSG:2062",
+                "timezone": "CET",
+                "local_langs": ["es", "ca"],
+                "shapefile_name": "recintos_autonomicas_inspire_peninbal_etrs89.shp",
+                "shapefile_name_col": "NAMEUNIT",
+                "shapefile_name_val": "Cataluña"
+                },
+            "Valencian Community": {
+                "readable": "Valencian Community",
+                "xy_proj": "EPSG:2062",
+                "timezone": "CET",
+                "local_langs": ["es", "ca"],
+                "shapefile_name": "recintos_autonomicas_inspire_peninbal_etrs89.shp",
+                "shapefile_name_col": "NAMEUNIT",
+                "shapefile_name_val": "Comunitat Valenciana"
+                },
+            "Balearic islands": {
+                "readable": "Balearic islands",
+                "xy_proj": "EPSG:2062",
+                "timezone": "CET",
+                "local_langs": ["es", "ca"],
+                "shapefile_name": "recintos_autonomicas_inspire_peninbal_etrs89.shp",
+                "shapefile_name_col": "NAMEUNIT",
+                "shapefile_name_val": "Illes Balears"
+                },
+            "Galicia": {
+                "readable": "Galicia",
+                "xy_proj": "EPSG:2062",
+                "timezone": "CET",
+                "local_langs": ["es", "gl"],
+                "shapefile_name": "recintos_autonomicas_inspire_peninbal_etrs89.shp",
+                "shapefile_name_col": "NAMEUNIT",
+                "shapefile_name_val": "Galicia"
+                },
+            "Basque country": {
+                "readable": "Basque country",
+                "xy_proj": "EPSG:2062",
+                "timezone": "CET",
+                "local_langs": ["es", "eu"],
+                "shapefile_name": "recintos_autonomicas_inspire_peninbal_etrs89.shp",
+                "shapefile_name_col": "NAMEUNIT",
+                "shapefile_name_val": "País Vasco/Euskadi"
+                }
+            }
+        },
+    "SG": {
+        "readable": "Singapore",
+        "mongo_coll": "south_eastern_asia",
+        "xy_proj": "EPSG:3414",
+        "min_poly_area": 0,
+        "max_place_area": 5e8,
+        "local_langs": ["en", "zh", "ms", "ta"],
+        "timezone": "Asia/Singapore",
+        "shapefile_name": "SG.shp"
+        },
+    "FR": {
+        "readable": "France",
+        "mongo_coll": "western_europe",
+        "xy_proj": "EPSG:2154",
+        "local_langs": ["fr"],
+        "timezone": "Europe/Paris", 
+        "shape_bbox": [-9.86, 41.15, 10.38, 51.56]
+        },
+    "CH": {
+        "readable": "Switzerland",
+        "mongo_coll": "western_europe",
+        "xy_proj": "EPSG:21781",
+        "local_langs": ["de", "fr", "it"],
+        "timezone": "CET"
+        },
+    "BE": {
+        "readable": "Belgium",
+        "mongo_coll": "western_europe",
+        "xy_proj": "EPSG:3812",
+        "local_langs": ["fr", "nl"],
+        "timezone": "CET"
+        },
+    "SN": {
+        "readable": "Senegal",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:3414",
+        "max_place_area": 1e15,
+        "cell_size": 1e9,
+        "local_langs": ["fr"],
+        "timezone": "Africa/Dakar"
+        },
+    "CI": {
+        "readable": "Ivory Coast",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:3414",
+        "max_place_area": 1e15,
+        "cell_size": 1e9,
+        "local_langs": ["fr"],
+        "timezone": "Africa/Abidjan"
+        },
+    "CM": {
+        "readable": "Cameroon",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:3119",
+        "max_place_area": 5e11,
+        "cell_size": 75e3,
+        "local_langs": ["fr"],
+        "timezone": "Africa/Douala"
+        },
+    "CD": {
+        "readable": "Democratic Republic of the Congo",
+        "mongo_coll": "sub_saharan_africa",
+        "xy_proj": "EPSG:3119",
+        "max_place_area": 1e15,
+        "cell_size": 1e9,
+        "local_langs": ["fr"],
+        "timezone": "Africa/Kinshasa"
+        },
+    "MX": {
+        "readable": "Mexico",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:6372",
+        "local_langs": ["es"],
+        "timezone": "America/Mexico_City",
+        "max_place_area": 2e10,
+        "cell_size": 75e3
+        },
+    "GT": {
+        "readable": "Guatemala",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24817",
+        "local_langs": ["es"],
+        "timezone": "America/Guatemala",
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "SV": {
+        "readable": "El Salvador",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:5460",
+        "local_langs": ["es"],
+        "timezone": "America/El_Salvador",
+        "max_place_area": 3e9,
+        "cell_size": 75e3
+        },
+    "HN": {
+        "readable": "Honduras",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24817",
+        "local_langs": ["es"],
+        "timezone": "America/Tegucigalpa",
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "NI": {
+        "readable": "Nicaragua",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24817",
+        "local_langs": ["es"],
+        "timezone": "America/Managua",
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "CR": {
+        "readable": "Costa Rica",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:5457",
+        "local_langs": ["es"],
+        "timezone": "America/Costa_Rica",
+        "max_place_area": 2e11,
+        "cell_size": 75e3,
+        "shape_bbox": [-86.2, 7.7, -82, 11.4]
+        },
+    "PA": {
+        "readable": "Panama",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:5457",
+        "local_langs": ["es"],
+        "timezone": "America/Panama",
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "EC": {
+        "readable": "Ecuador",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24817",
+        "local_langs": ["es"],
+        "timezone": "America/Guayaquil",
+        "max_place_area": 2e10,
+        "cell_size": 75e3,
+        "shape_bbox": [-82.4, -5.5, -75, 1.6]
+        },
+    "CO": {
+        "readable": "Colombia",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:3118",
+        "local_langs": ["es"],
+        "timezone": "America/Bogota",
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "PE": {
+        "readable": "Peru",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24891",
+        "local_langs": ["es"],
+        "timezone": "America/Lima",
+        "max_place_area": 1e10,
+        "cell_size": 75e3
+        },
+    "CL": {
+        "readable": "Chile",
+        "mongo_coll": "latin_america_and_the_caribbean",
+        "xy_proj": "EPSG:24891",
+        "local_langs": ["es"],
+        "timezone": "America/Santiago",
+        "max_place_area": 1e10,
+        "cell_size": 75e3,
+        "shape_bbox": [-80, -56, -62, -15]
+        },
+    "RU": {
+        "readable": "Russia",
+        "mongo_coll": "eastern_europe",
+        "xy_proj": "EPSG:3576",
+        "local_langs": ["ru"],
+        "max_place_area": 2e10,
+        "cell_size": 100e3
+        },
+    "BY": {
+        "readable": "Belarus",
+        "mongo_coll": "eastern_europe",
+        "xy_proj": "EPSG:2526",
+        "local_langs": ["ru"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "UA": {
+        "readable": "Ukraine",
+        "mongo_coll": "eastern_europe",
+        "xy_proj": "EPSG:2526",
+        "local_langs": ["ru", "uk"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "MN": {
+        "readable": "Mongolia",
+        "mongo_coll": "eastern_asia",
+        "xy_proj": "EPSG:3576",
+        "local_langs": ["ru"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "KZ": {
+        "readable": "Kazakhstan",
+        "mongo_coll": "central_asia",
+        "xy_proj": "EPSG:3576",
+        "local_langs": ["ru"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "KG": {
+        "readable": "Kyrgyzstan",
+        "mongo_coll": "central_asia",
+        "xy_proj": "EPSG:3576",
+        "local_langs": ["ru"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        },
+    "UZ": {
+        "readable": "Uzbekistan",
+        "mongo_coll": "central_asia",
+        "xy_proj": "EPSG:3576",
+        "local_langs": ["ru", "uz"],
+        "max_place_area": 1e15,
+        "cell_size": 1e9
+        }
+}
