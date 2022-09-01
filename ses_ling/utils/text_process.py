@@ -1,5 +1,7 @@
+from __future__ import annotations
 from typing import TYPE_CHECKING
 import re
+import numpy as np
 import pandas as pd
 try:
     import cld3
@@ -11,6 +13,7 @@ import pycld2
 if TYPE_CHECKING:
     from language_tool_python import LanguageTool
 
+WORD_PATT = re.compile(r'\b[^\W\d_]+?\b')
 
 def clean(tweets_df, text_col='text', acc_th=0.9, min_nr_words=4, min_nr_cjk=4,
           lang=None):
@@ -74,8 +77,7 @@ def clean(tweets_df, text_col='text', acc_th=0.9, min_nr_words=4, min_nr_cjk=4,
         # account for non latin alphabets. A letter is then what is neither a digit
         # (\d), nor an underscore, nor a non-word character (\W: punctuation,
         # special characters, emojis...).
-        word_any_lang_pattern = re.compile(r'\b[^\W\d_]+?\b')
-        tweets_lang_df['nr_words'] = tweets_lang_df['filtered_text'].str.count(word_any_lang_pattern)
+        tweets_lang_df['nr_words'] = tweets_lang_df['filtered_text'].str.count(WORD_PATT)
         # We also count the number of Chinese-Japanese-Korean (CJK) characters,
         # because they can be a full word or syllable, and a whole sentence can be
         # written without any space, so the word count is irrelevant.
@@ -158,7 +160,20 @@ def count_mistakes(
     # attr_code`
     code_corr = {attr_name: {} for attr_name in multiindex_dict['names'][1:]}
     for iloc_user, utuple in enumerate(user_corpora.itertuples()):
-        matches = language_tool.check(utuple.text)
+        # If too much text for single user, split into chunks to make smaller queries
+        # to LT server.
+        if len(utuple.text) > 2e4: # 5000 words of 4 characters
+            matches = []
+            sentences_sets = utuple.text.splitlines(keepends=True)
+            nr_words_per_tweet = utuple.nr_words / utuple.nr_tweets
+            # roughly have 1000 tweets of 5 words
+            n_splits = int(len(sentences_sets) // (5000 / nr_words_per_tweet))
+            for i in range(n_splits):
+                matches.extend(language_tool.check(
+                    ''.join(sentences_sets[i::n_splits])
+                ))
+        else:
+            matches = language_tool.check(utuple.text)
         multiindex_dict['codes'][0].extend(len(matches) * [iloc_user])
         for m in matches:
             for i_attr, attr_name in enumerate(code_corr.keys(), start=1):
@@ -177,3 +192,67 @@ def count_mistakes(
          .sum()
     )
     return user_mistakes
+
+
+def measure_vocab_size(t: str):
+    return len(set(re.findall(WORD_PATT, t)))
+
+
+def yearly_vocab(user_corpora: pd.DataFrame, words_index: pd.Series):
+    '''
+    Because unique is not parallelisable, have to do it this way. Reduce rank list sizes
+    using the 'words_until' column
+    `words_index` sorted by decreasing word's freq, 
+    '''
+    user_words = (
+        user_corpora['text'].str.lower()
+         .str.findall(WORD_PATT)
+         .explode()
+         .rename('word')
+         .to_frame()
+         .groupby(['user_id', 'word'])
+         .size()
+         .rename('count')
+    )
+    user_words = user_words.to_frame().join(words_index.rename('rank'))
+
+    nr_words = words_index.size
+    first_time = not 'rank_arr' in user_corpora.columns
+    list_arr = []
+    list_until = []
+    for user_id, g in user_words['rank'].groupby('user_id'):
+
+        if first_time:
+            start_new_rank = nr_words
+            sorted_ranks = np.sort(g.values)
+
+        else:
+            user_rank_arr = user_corpora.loc[user_id, 'rank_arr']
+            if isinstance(user_rank_arr, list):
+                start_new_rank = max(nr_words, user_rank_arr[-1])
+                sorted_ranks = np.sort(np.unique(np.append(user_rank_arr, g.values)))
+            else:
+                start_new_rank = nr_words
+                sorted_ranks = np.sort(g.values)
+
+        is_word_only_instance = np.isnan(sorted_ranks)
+        sorted_ranks[is_word_only_instance] = (
+            is_word_only_instance[is_word_only_instance].cumsum() + start_new_rank
+        )
+        sorted_ranks = sorted_ranks.astype(int)
+        is_consec = np.diff(sorted_ranks) == 1
+        consec_until = 0 if is_consec.size == 0 else is_consec.argmin()
+        if consec_until == 0:
+            all_until = None
+            user_rank_arr = sorted_ranks
+        else:
+            all_until = sorted_ranks[consec_until]
+            user_rank_arr = sorted_ranks[consec_until + 1:]
+        list_until.append(all_until)
+        list_arr.append(list(user_rank_arr))
+
+    idx_users_with_data = user_words.index.levels[0][np.unique(user_words.index.codes[0])]
+    user_corpora.loc[idx_users_with_data, 'words_until'] = list_until
+    user_corpora.loc[idx_users_with_data, 'rank_arr'] = list_arr
+    return user_corpora
+

@@ -34,17 +34,21 @@ def yield_paramed_matches(file_path_format, params_dict):
             yield match
 
 
-def partial_format(fmt_str, **kwargs):
+def partial_format(fmt_str, *args, **kwargs):
     all_kw = list(yield_kw_from_fmt_str(fmt_str))
     fmt_dict = {**{kw: f'{{{kw}}}' for kw in all_kw}, **kwargs}
-    return fmt_str.format(**fmt_dict)
+    return fmt_str.format(*args, **fmt_dict)
 
 
-def format_path(path_fmt, **kwargs):
+def partial_path_format(path_fmt, *args, **kwargs):
+    return Path(partial_format(str(path_fmt), *args, **kwargs))
+
+
+def format_path(path_fmt, *args, **kwargs):
     '''
     Utility to apply string formatting to a Path.
     '''
-    return Path(str(path_fmt).format(**kwargs))
+    return Path(str(path_fmt).format(*args, **kwargs))
 
 
 @dataclass
@@ -54,37 +58,68 @@ class ProjectPaths:
     this class allows us to define these only once, ensuring consistency.
     '''
     proj: Path = Path(os.environ['PROJ_DIR'])
-    # source_fname_fmt: str = '{kind}_{from}_{to}_{cc}.json.gz'
-    proj_data: Path = field(init=False)
-    ext_data: Path = field(init=False)
-    raw_data: Path = field(init=False)
-    interim_data: Path = field(init=False)
-    processed_data: Path = field(init=False)
-    counts_files_fmt: Path = field(init=False)
-    shp_file_fmt: Path = field(init=False)
-    figs: Path = field(init=False)
-    cluster_fig_fmt: Path = field(init=False)
+    countries_shapefile_name: str = 'CNTR_RG_01M_2016_4326'
+    user_residence_cell_fname_fmt: str = (
+        'user_residence_cell_{year_from}-{year_to}_'
+        'nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_'
+        'count_th={count_th}.parquet'
+    )
+    user_mistakes_fname_fmt: str = (
+        'user_mistakes_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_'
+        'all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+    )
+    user_corpora_fname_fmt: str = (
+        'user_corpora_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_'
+        'all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+    )
+    counts_fname_fmt: str = (
+        '{kind}_lang={lc}_cc={cc}_years={year_from}-{year_to}_'
+        'cell_size={cell_size}.parquet'
+    )
 
     def __post_init__(self):
-        # self.source_fmt = self.source_data / self.source_fname_fmt
         self.proj_data = self.proj / 'data'
         self.ext_data = self.proj_data / 'external'
         self.raw_data = self.proj_data / 'raw'
         self.interim_data = self.proj_data / 'interim'
         self.processed_data = self.proj_data / 'processed'
-        self.shp_file_fmt = self.ext_data / '{0}.shp' / '{0}.shp'
+        self.shp_file_fmt = self.ext_data / '{0}' / '{0}.shp'
+        self.countries_shapefile = format_path(self.shp_file_fmt, self.countries_shapefile_name)
         self.figs = self.proj / 'reports' / 'figures'
         self.case_figs = self.figs / '{lc}' / '{cc}' / '{year_from}-{year_to}'
-        self.resident_ids = self.interim_data / '{cc}' / 'resident_ids_{year_from}-{year_to}.txt'
-        self.user_cells_from_gps = self.interim_data / '{cc}' / 'user_cells_from_gps_{cell_kind}_{year_from}-{year_to}.parquet'
-        self.user_places = self.interim_data / '{cc}' / 'user_places_{year_from}-{year_to}.parquet'
-        self.user_residence_cell = self.interim_data / '{cc}' / 'user_residence_cell_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_count_th={count_th}.parquet'
-        self.user_mistakes = self.interim_data / '{cc}' / 'user_mistakes_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+        self.resident_ids = (
+            self.interim_data / '{cc}' / 'resident_ids_{year_from}-{year_to}.txt'
+        )
+        self.user_cells_from_gps = (
+            self.interim_data
+            / '{cc}'
+            / 'user_cells_from_gps_{cell_kind}_{year_from}-{year_to}.parquet'
+        )
+        self.user_places = (
+            self.interim_data / '{cc}' / 'user_places_{year_from}-{year_to}.parquet'
+        )
+        self.user_residence_cell = (
+            self.interim_data / '{cc}' / self.user_residence_cell_fname_fmt
+        )
+        self.user_mistakes = self.interim_data / '{cc}' / self.user_mistakes_fname_fmt
+        self.user_corpora = self.interim_data / '{cc}' / self.user_corpora_fname_fmt
+        self.chunk_user_mistakes = (
+            self.user_mistakes.parent
+            / (self.user_mistakes.stem + '_chunk={i_chunk}' + self.user_mistakes.suffix)
+        )
         self.rule_category = self.interim_data / '{cc}' / 'rule_category.csv'
+        self.counts_files = (
+            self.proj.parent / 'words-use' / 'data' / 'raw' / '{lc}' / '{cc}'
+            / self.counts_fname_fmt
+        )
+        self.language_tool_categories = self.ext_data / 'language_tool_categories_{lc}.json'
 
-        
+
     def partial_format(self, **kwargs):
         for attr in (
-            'case_figs', 'resident_ids', 'user_cells_from_gps', 'user_places', 'user_residence_cell', 'user_mistakes', 'rule_category'
+            'case_figs', 'resident_ids', 'user_cells_from_gps', 'user_places',
+            'user_residence_cell', 'user_mistakes', 'user_corpora', 
+            'chunk_user_mistakes', 'rule_category', 'language_tool_categories',
+            'counts_files', 
         ):
-            setattr(self, attr, Path(partial_format(str(getattr(self, attr)), **kwargs)))
+            setattr(self, attr, partial_path_format(getattr(self, attr), **kwargs))
