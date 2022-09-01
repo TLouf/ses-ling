@@ -380,14 +380,18 @@ class Language:
             user_mistakes = (
                 pd.concat([r.user_mistakes for r in self.regions])
                  .join(self.lt_rules[[]]) # add cat_id index level
+                 .reset_index(level='cat_id')
+            )
+            # For rules with no category (not present in lt_rules, like java rules),
+            # assign them to their own category.
+            cat_is_null = user_mistakes['cat_id'].isnull()
+            user_mistakes.loc[cat_is_null, 'cat_id'] = user_mistakes.index.get_level_values('rule_id')[cat_is_null.values]
+            user_mistakes = (
+                user_mistakes.set_index('cat_id', append=True)
                  .swaplevel(0, 1)
                  .swaplevel(1, 2)
                  .join(self.user_corpora)
             )
-            cat_idx = user_mistakes.index.get_level_values('cat_id').values
-            cat_is_null = pd.isnull(cat_idx)
-            cat_idx[cat_is_null] = user_mistakes.index.get_level_values('rule_id')[cat_is_null]
-            user_mistakes.index.set_levels(cat_idx, level='cat_id')
             user_mistakes['freq_per_word'] = user_mistakes['count'] / user_mistakes['nr_words']
             user_mistakes['freq_per_tweet'] = user_mistakes['count'] / user_mistakes['nr_tweets']
             # user_mistakes = user_mistakes[np.setdiff1d(user_mistakes.columns, self.user_corpora.columns)]
