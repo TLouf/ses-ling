@@ -127,6 +127,13 @@ class Region:
         return Region(cc, lc, all_cntr_shapes, **d)
 
 
+    def update_from_dict(self, d):
+        # useful when changes are made to countries.json
+        for key, value in d.items():
+            if self.hasattr(key):
+                setattr(self, key, value)
+
+
     def to_dict(self):
         # custom to_dict to keep only parameters that can be in save path
         list_attr = [
@@ -356,6 +363,11 @@ class Language:
             year_from=year_from, year_to=year_to, **kwargs
         )
 
+    def update_regions_from_dict(self, d):
+        # useful when changes are made to countries.json
+        for r in self.regions:
+            r.update_from_dict(d[r.cc])
+
 
     def to_dict(self):
         # custom to_dict to keep only parameters that can be in save path
@@ -461,7 +473,7 @@ class Language:
             agg_metrics = spatial_agg.get_agg_metrics(
                 r.ses_df, r.cell_levels_corr, metric_col=metric_col
             )
-            
+
             self.cells_geodf = (
                 self.cells_geodf.drop(columns=agg_metrics.columns, errors='ignore')
                  .join(agg_metrics)
