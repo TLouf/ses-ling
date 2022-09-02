@@ -272,6 +272,7 @@ class Language:
     # TODO: combine next two in _user_df?
     _user_residence_cell: pd.DataFrame | None = None
     _user_corpora: pd.DataFrame | None = None
+    _user_df: pd.DataFrame | None = None
     _user_mistakes: pd.DataFrame | None = None
     width_ratios: np.ndarray | None = None
 
@@ -386,11 +387,29 @@ class Language:
 
     @property
     def user_residence_cell(self):
+        # TODO: when several regions, handle duplicate user_id (should be rare though
+        # given residence requirement)
         if self._user_residence_cell is None:
             self._user_residence_cell = pd.concat([
                 r.user_residence_cell for r in self.regions
             ])
         return self._user_residence_cell
+
+    @property
+    def user_corpora(self):
+        if self._user_corpora is None:
+            self._user_corpora = pd.concat([
+                r.user_corpora for r in self.regions
+            ])
+        return self._user_corpora
+
+
+    @property
+    def user_df(self):
+        if self._user_df is None:
+            self._user_df = self.user_corpora.join(self.user_residence_cell['cell_id'])
+        return self._user_df
+
 
     @property
     def user_mistakes(self):
