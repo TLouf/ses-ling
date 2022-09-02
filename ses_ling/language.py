@@ -50,6 +50,7 @@ class Region:
     cells_geodf: geopd.GeoDataFrame | None = None
     cell_lvls_corr: pd.DataFrame | None = None
     ses_df: pd.DataFrame | None = None
+    lt_rules: pd.DataFrame | None = None
     _paths: paths_utils.ProjectPaths | None = None
     _user_residence_cell: pd.DataFrame | None = None
     _user_mistakes: pd.DataFrame | None = None
@@ -85,6 +86,16 @@ class Region:
             self.cell_levels_corr = spatial_agg.levels_corr(
                 corr_path, self.ses_df, agg_level, weight_col=weight_col
             )
+
+        if self.lt_rules is None:
+            lt_rules_path = self.paths.rule_category
+            if lt_rules_path.exists():
+                self.lt_rules = (
+                    pd.read_csv(lt_rules_path)
+                     .rename(columns={'ruleId': 'rule_id', 'category': 'cat_id'})
+                     .groupby(['cat_id', 'rule_id'])
+                     .first()
+                )
 
     def __repr__(self):
         field_dict = self.__dataclass_fields__
@@ -292,9 +303,10 @@ class Language:
             lt_cats_dict = text_process.parse_online_grammar(self.lc)
             with open(self.paths.language_tool_categories, 'w') as f:
                 json.dump(lt_cats_dict, f)
-        self.lt_rules = text_process.get_lt_rules(lt_cats_dict)
+
         self.lt_categories = text_process.get_lt_categories(lt_cats_dict)
-        
+        self.lt_rules = self.get_lt_rules(lt_cats_dict)
+
 
     def __repr__(self):
         field_dict = self.__dataclass_fields__
@@ -409,13 +421,17 @@ class Language:
         self._user_mistakes = _user_mistakes
 
 
-    @property
-    def user_corpora(self):
-        if self._user_corpora is None:
-            self._user_corpora = pd.concat([
-                r.user_corpora for r in self.regions
-            ])
-        return self._user_corpora
+    def get_lt_rules(self, lt_cats_dict):
+        self.lt_rules = text_process.get_lt_rules(lt_cats_dict)
+        self.lt_rules = (
+            pd.concat(
+                [self.lt_rules]
+                + [r.lt_rules for r in self.regions if r.lt_rules is not None]
+            )
+             .groupby(['cat_id', 'rule_id'])
+             .first()
+        )
+        return self.lt_rules
 
 
     def read_metric(self, metric_col):
