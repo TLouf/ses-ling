@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 
@@ -12,24 +14,37 @@ def levels_corr(path, unit_level_df, agg_level, weight_col='weight'):
     return cell_levels_corr
 
 
-def get_agg_metrics(metrics_df, cell_levels_corr, metric_col='score'):
-    agg_metrics = metrics_df.join(cell_levels_corr)
-    grouper = agg_metrics.groupby(cell_levels_corr.index.names[0])
-    agg_metrics['wavg_elem'] = agg_metrics[metric_col] * agg_metrics['w_normed']
-    agg_metrics['avg'] = grouper[metric_col].transform('mean')
-    agg_metrics['wvar_elem'] = (
-        (agg_metrics[metric_col] - agg_metrics['avg'])**2
-        * agg_metrics['w_normed']
+def get_agg_metrics(metrics_df, cell_levels_corr, metric_cols: str | list[str] | None = None):
+    if metric_cols is None:
+        metric_cols = metrics_df.columns.tolist()
+    elif isinstance(metric_cols, str):
+        metric_cols = [metric_cols]
+
+    stacked_metrics_df = metrics_df[metric_cols].stack().rename('value').to_frame()
+    stacked_metrics_df.index = stacked_metrics_df.index.set_names('metric', level=1)
+    stacked_metrics_df = stacked_metrics_df.join(cell_levels_corr)
+
+    groupby_cols = [cell_levels_corr.index.names[0], 'metric']
+    grouped = stacked_metrics_df.groupby(groupby_cols)
+    stacked_metrics_df = (
+        stacked_metrics_df.assign(avg=grouped['value'].transform('mean'))
+         .eval("wavg_elem = w_normed * value")
+         .eval("wvar_elem = w_normed * (value - avg)**2")
     )
-    agg_metrics = grouper.agg(
+    grouped = stacked_metrics_df.groupby(groupby_cols)
+    agg_metrics = grouped.agg(
         wavg=('wavg_elem', 'sum'),
         wvar=('wvar_elem', 'mean'),
         avg=('avg', 'first'),
-        var=(metric_col, 'var'),
-        min=(metric_col, 'min'),
-        max=(metric_col, 'max'),
+        var=('value', 'var'),
+        min=('value', 'min'),
+        max=('value', 'max'),
         weight=('w_sum', 'first'),
-        nr_units=(metric_col, 'size')
+        nr_units=('value', 'size')
     )
     agg_metrics['wstd'] = np.sqrt(agg_metrics['wvar'])
     return agg_metrics
+
+
+def extract_cells_metric(agg_metrics, metric_name):
+    return agg_metrics.loc[(slice(None), metric_name), :].droplevel(1)

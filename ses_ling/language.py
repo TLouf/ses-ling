@@ -252,7 +252,7 @@ class Region:
             user_mistakes.to_parquet(self.paths.user_mistakes, index=True)
             user_corpora.to_parquet(self.paths.user_corpora, index=True)
 
-        self._user_corpora = user_corpora
+        self._user_corpora = user_corpora.astype(int)
         self._user_mistakes = user_mistakes
 
 
@@ -279,11 +279,13 @@ class Language:
     cells_geodf: geopd.GeoDataFrame = field(init=False)
     lt_rules: pd.DataFrame = field(init=False)
     lt_categories: pd.DataFrame = field(init=False)
-    # TODO: combine next two in _user_df?
     _user_residence_cell: pd.DataFrame | None = None
     _user_corpora: pd.DataFrame | None = None
     _user_df: pd.DataFrame | None = None
     _user_mistakes: pd.DataFrame | None = None
+    _cells_ses_df: pd.DataFrame | None = None
+    _cells_users_df: pd.DataFrame | None = None
+    _cells_mistakes: pd.DataFrame | None = None
     width_ratios: np.ndarray | None = None
 
     def __post_init__(self, _cc_init_params, all_cntr_shapes, countries_dict):
@@ -432,27 +434,80 @@ class Language:
             user_mistakes = (
                 pd.concat([r.user_mistakes for r in self.regions])
                  .join(self.lt_rules[[]]) # add cat_id index level
-                 .reset_index(level='cat_id')
             )
-            # For rules with no category (not present in lt_rules, like java rules),
-            # assign them to their own category.
-            cat_is_null = user_mistakes['cat_id'].isnull()
-            user_mistakes.loc[cat_is_null, 'cat_id'] = user_mistakes.index.get_level_values('rule_id')[cat_is_null.values]
-            user_mistakes = (
-                user_mistakes.set_index('cat_id', append=True)
-                 .swaplevel(0, 1)
+            if -1 in user_mistakes.index.codes[2]:
+                # if nans in cat_id:
+                user_mistakes = user_mistakes.reset_index(level='cat_id')
+                # For rules with no category (not present in lt_rules, like java rules),
+                # assign them to their own category.
+                cat_is_null = user_mistakes['cat_id'].isnull()
+                user_mistakes.loc[cat_is_null, 'cat_id'] = (
+                    user_mistakes.index.get_level_values('rule_id')[cat_is_null.values]
+                )
+                user_mistakes = user_mistakes.set_index('cat_id', append=True)
+
+            self._user_mistakes = (
+                user_mistakes.swaplevel(0, 1)
                  .swaplevel(1, 2)
                  .join(self.user_corpora)
+                 .eval("freq_per_word = count / nr_words")
+                 # TODO: the following can be > 1, so probably not very meaningful, discard?
+                 .eval("freq_per_tweet = count / nr_tweets")
+                 .sort_index()
             )
-            user_mistakes['freq_per_word'] = user_mistakes['count'] / user_mistakes['nr_words']
-            user_mistakes['freq_per_tweet'] = user_mistakes['count'] / user_mistakes['nr_tweets']
             # user_mistakes = user_mistakes[np.setdiff1d(user_mistakes.columns, self.user_corpora.columns)]
-            self._user_mistakes = user_mistakes.sort_index()
         return self._user_mistakes
 
     @user_mistakes.setter
     def user_mistakes(self, _user_mistakes):
         self._user_mistakes = _user_mistakes
+
+
+    @property
+    def cells_ses_df(self):
+        if self._cells_ses_df is None:
+            self._cells_ses_df = pd.DataFrame()
+            for r in self.regions:
+                # can actually happen we do this over more than one region: take eg
+                # average income (normalized for cost of living eg) for regions speaking
+                # same language
+                agg_metrics = spatial_agg.get_agg_metrics(
+                    r.ses_df, r.cell_levels_corr
+                )
+                self._cells_ses_df = pd.concat([self._cells_ses_df, agg_metrics])
+        return self._cells_ses_df
+
+
+    @property
+    def cells_users_df(self):
+        if self._cells_users_df is None:
+            self._cells_users_df = self.user_df.groupby('cell_id').agg(
+                nr_users=('nr_words', 'size'),
+                nr_tweets=('nr_tweets', 'sum'),
+                nr_words=('nr_words', 'sum'),
+                avg_nr_unique_words=('nr_unique_words', 'mean'),
+            )
+        return self._cells_users_df
+
+
+    @property
+    def cells_mistakes(self):
+        if self._cells_mistakes is None:
+            udf = self.user_mistakes.join(self.user_residence_cell['cell_id'])
+            udf['nr_users'] = udf.groupby('cell_id')['count'].transform('size')
+            self._cells_mistakes = (
+                udf.groupby(['cell_id', 'cat_id', 'rule_id'])
+                 .agg(
+                    count=('count', 'sum'),
+                    usum_freq_per_word=('freq_per_word', 'sum'),
+                    usum_freq_per_tweet=('freq_per_tweet', 'sum'),
+                    nr_users=('nr_users', 'first'),
+                )
+                 .eval("uavg_freq_per_word = usum_freq_per_word / nr_users")
+                 .eval("uavg_freq_per_tweet = usum_freq_per_tweet / nr_users")
+                 .loc[:, ['count', 'uavg_freq_per_word', 'uavg_freq_per_tweet']]
+            )
+        return self._cells_mistakes
 
 
     def get_lt_rules(self, lt_cats_dict):
@@ -466,21 +521,6 @@ class Language:
              .first()
         )
         return self.lt_rules
-
-
-    def read_metric(self, metric_col):
-        for r in self.regions:
-            # can actually happen we do this over more than one region: take eg average
-            # income (normalized for cost of living eg) for regions speaking same
-            # language
-            agg_metrics = spatial_agg.get_agg_metrics(
-                r.ses_df, r.cell_levels_corr, metric_col=metric_col
-            )
-
-            self.cells_geodf = (
-                self.cells_geodf.drop(columns=agg_metrics.columns, errors='ignore')
-                 .join(agg_metrics)
-            )
 
 
     def get_width_ratios(self, ratio_lgd=None):
