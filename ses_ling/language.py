@@ -32,6 +32,7 @@ class Region:
     shapefile_val: InitVar[str | None] = None
     # not a problem to default with mutable because this initvar is never touched
     extract_shape_kwargs: InitVar[dict] = {'simplify_tol': 100}
+    shape_bbox: InitVar[list[float] | None] = None
     cell_shapefiles: dict = field(default_factory=dict)
     cell_levels_corr_files: dict = field(default_factory=dict)
     ses_idx: str | None = None
@@ -57,14 +58,16 @@ class Region:
     _user_corpora: pd.DataFrame | None = None
 
     def __post_init__(
-        self, all_cntr_shapes, shapefile_col, shapefile_val, extract_shape_kwargs,
+        self, all_cntr_shapes, shapefile_col, shapefile_val, extract_shape_kwargs, shape_bbox
     ):
+        self._shape_bbox = shape_bbox
         if self.shape_geodf is None:
             shapefile_val = shapefile_val or self.cc
             mask = all_cntr_shapes[shapefile_col].str.startswith(shapefile_val)
             self.shape_geodf = geo_utils.extract_shape(
                 all_cntr_shapes.loc[mask], self.cc, xy_proj=self.xy_proj, **extract_shape_kwargs
             )
+
         if self.cells_geodf is None:
             self.load_cells_geodf()
 
@@ -144,10 +147,10 @@ class Region:
 
 
     @property
-    def shape_bbox(self):
-        if self.shape_bbox is None:
-            self.shape_bbox = self.shape_geodf.geometry.to_crs('epsg:4326').total_bounds
-        return self.shape_bbox
+    def bbox(self):
+        if self._shape_bbox is None:
+            self._shape_bbox = self.shape_geodf.geometry.to_crs('epsg:4326').total_bounds
+        return self._shape_bbox
 
     @property
     def paths(self):
