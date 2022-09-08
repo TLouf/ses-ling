@@ -90,3 +90,5 @@ data/**
 
 # Bash scripts
 *.sh
+
+references/**
