@@ -154,8 +154,6 @@ class Region:
 
     @property
     def paths(self):
-        # # Here use this convention so that Region can inherit a Language's paths
-        # if self._paths is None:
         self._paths = paths_utils.ProjectPaths()
         self._paths.partial_format(**self.to_dict())
         return self._paths
@@ -275,6 +273,8 @@ class Language:
     nighttime_acty_th: float = 0.5
     all_acty_th: float = 0.1
     count_th: int = 3
+    _user_nr_words_th: int = 0
+    _cells_nr_users_th: int = 0
     # Data containers (frames, arrays)
     cells_geodf: geopd.GeoDataFrame = field(init=False)
     lt_rules: pd.DataFrame = field(init=False)
@@ -427,6 +427,31 @@ class Language:
             self._user_df = self.user_corpora.join(self.user_residence_cell['cell_id'])
         return self._user_df
 
+    @user_df.setter
+    def user_df(self, df):
+        self._user_df = df
+
+    @property
+    def user_nr_words_th(self):
+        return self._user_nr_words_th
+
+    @user_nr_words_th.setter
+    def user_nr_words_th(self, th):
+        del self.user_mask
+        self._user_nr_words_th = th
+
+    @property
+    def user_mask(self):
+        if 'is_relevant' not in self.user_df.columns:
+            nr_words_mask = self.user_df['nr_words'] >= self.user_nr_words_th
+            self.user_df['is_relevant'] = nr_words_mask
+            print(f'Keeping {nr_words_mask.sum()} users out of {self.user_df.shape[0]}')
+        return self.user_df['is_relevant']
+
+    @user_mask.deleter
+    def user_mask(self):
+        self.user_df = self.user_df.drop(columns='is_relevant', errors='ignore')
+
 
     @property
     def user_mistakes(self):
@@ -481,11 +506,15 @@ class Language:
     @property
     def cells_users_df(self):
         if self._cells_users_df is None:
-            self._cells_users_df = self.user_df.groupby('cell_id').agg(
-                nr_users=('nr_words', 'size'),
-                nr_tweets=('nr_tweets', 'sum'),
-                nr_words=('nr_words', 'sum'),
-                avg_nr_unique_words=('nr_unique_words', 'mean'),
+            self._cells_users_df = (
+                self.user_df.loc[self.user_mask]
+                 .groupby('cell_id')
+                 .agg(
+                    nr_users=('nr_words', 'size'),
+                    nr_tweets=('nr_tweets', 'sum'),
+                    nr_words=('nr_words', 'sum'),
+                    avg_nr_unique_words=('nr_unique_words', 'mean'),
+                )
             )
         return self._cells_users_df
 
@@ -493,7 +522,9 @@ class Language:
     @property
     def cells_mistakes(self):
         if self._cells_mistakes is None:
-            udf = self.user_mistakes.join(self.user_residence_cell['cell_id'])
+            udf = self.user_mistakes.join(
+                self.user_df.loc[self.user_mask, 'cell_id']
+            )
             udf['nr_users'] = udf.groupby('cell_id')['count'].transform('size')
             self._cells_mistakes = (
                 udf.groupby(['cell_id', 'cat_id', 'rule_id'])
@@ -508,6 +539,38 @@ class Language:
                  .loc[:, ['count', 'uavg_freq_per_word', 'uavg_freq_per_tweet']]
             )
         return self._cells_mistakes
+
+    @property
+    def cells_nr_users_th(self):
+        return self._cells_nr_users_th
+
+    @cells_nr_users_th.setter
+    def cells_nr_users_th(self, th):
+        del self.cells_mask
+        self._cells_nr_users_th = th
+
+    @property
+    def cells_mask(self):
+        if 'is_relevant' not in self.cells_geodf.columns:
+            self.cells_geodf['is_relevant'] = False
+            nr_users_mask = self.cells_users_df['nr_users'] >= self.cells_nr_users_th
+            intersect = self.cells_users_df.loc[nr_users_mask].index.intersection(
+                self.cells_ses_df.index.levels[0]
+            )
+            self.cells_geodf.loc[intersect, 'is_relevant'] = True
+            print(
+                f'Keeping {intersect.size} cells out of {self.cells_geodf.shape[0]},'
+                f' {(~nr_users_mask).sum()} discarded from `cells_nr_users_th`'
+            )
+        return self.cells_geodf['is_relevant']
+
+    @cells_mask.deleter
+    def cells_mask(self):
+        self.cells_geodf = self.cells_geodf.drop(columns='is_relevant', errors='ignore')
+
+    @property
+    def relevant_cells(self):
+        return self.cells_mask.loc[self.cells_mask].index
 
 
     def get_lt_rules(self, lt_cats_dict):
