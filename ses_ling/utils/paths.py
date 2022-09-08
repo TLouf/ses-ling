@@ -86,7 +86,7 @@ class ProjectPaths:
         self.shp_file_fmt = self.ext_data / '{0}' / '{0}.shp'
         self.countries_shapefile = format_path(self.shp_file_fmt, self.countries_shapefile_name)
         self.figs = self.proj / 'reports' / 'figures'
-        self.case_figs = self.figs / '{lc}' / '{cc}' / '{year_from}-{year_to}'
+        self.case_figs = self.figs / '{lc}' / '{str_cc}' / '{year_from}-{year_to}'
         self.resident_ids = (
             self.interim_data / '{cc}' / 'resident_ids_{year_from}-{year_to}.txt'
         )

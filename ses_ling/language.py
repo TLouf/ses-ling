@@ -286,7 +286,7 @@ class Language:
     _cells_ses_df: pd.DataFrame | None = None
     _cells_users_df: pd.DataFrame | None = None
     _cells_mistakes: pd.DataFrame | None = None
-    width_ratios: np.ndarray | None = None
+    _width_ratios: np.ndarray | None = None
 
     def __post_init__(self, _cc_init_params, all_cntr_shapes, countries_dict):
         if len(self.regions) < len(_cc_init_params):
@@ -522,34 +522,34 @@ class Language:
         )
         return self.lt_rules
 
-
-    def get_width_ratios(self, ratio_lgd=None):
-        self.width_ratios = np.ones(len(self.list_cc) + 1)
-        for i, reg in enumerate(self.regions):
-            min_lon, min_lat, max_lon, max_lat = reg.shape_bbox
-            # For a given longitude extent, the width is maximum the closer to the
-            # equator, so the closer the latitude is to 0.
-            eq_not_crossed = int(min_lat * max_lat > 0)
-            lat_max_width = min(abs(min_lat), abs(max_lat)) * eq_not_crossed
-            width = geo_utils.haversine(min_lon, lat_max_width, max_lon, lat_max_width)
-            height = geo_utils.haversine(min_lon, min_lat, min_lon, max_lat)
-            self.width_ratios[i] = width / height
-        if ratio_lgd:
-            self.width_ratios[-1] = ratio_lgd
-        else:
-            self.width_ratios = self.width_ratios[:-1]
-        return self.width_ratios
+    @property
+    def width_ratios(self):
+        if self._width_ratios is None:
+            width_ratios = np.ones(len(self.list_cc))
+            for i, reg in enumerate(self.regions):
+                min_lon, min_lat, max_lon, max_lat = reg.bbox
+                # For a given longitude extent, the width is maximum the closer to the
+                # equator, so the closer the latitude is to 0.
+                eq_not_crossed = int(min_lat * max_lat > 0)
+                lat_max_width = min(abs(min_lat), abs(max_lat)) * eq_not_crossed
+                width = geo_utils.haversine(min_lon, lat_max_width, max_lon, lat_max_width)
+                height = geo_utils.haversine(min_lon, min_lat, min_lon, max_lat)
+                width_ratios[i] = width / height
+            self._width_ratios = width_ratios
+        return self._width_ratios
 
 
     def get_maps_pos(self, total_width, total_height=None, ratio_lgd=None):
-        width_ratios = self.get_width_ratios(ratio_lgd=ratio_lgd)
+        width_ratios = self.width_ratios.copy()
+        if ratio_lgd is not None:
+            width_ratios = np.append(width_ratios, ratio_lgd)
         return map_viz.position_axes(
             width_ratios, total_width, total_height=total_height, ratio_lgd=ratio_lgd
         )
 
 
     def map_continuous_choro(
-        self, z_plot, normed_bboxes: bool | np.ndarray = True,
+        self, z_plot: pd.Series, normed_bboxes: bool | np.ndarray = True,
         total_width=178, total_height=None, axes=None, cax=None,
         cbar_kwargs=None, **choro_kwargs
     ):
@@ -560,18 +560,18 @@ class Language:
             )
 
         if axes is None:
-            figsize = (total_width/10/2.54, total_height/10/2.54)
-            _, axes = plt.subplots(len(self.regions) + 1, figsize=figsize)
-            cax = axes[-1]
-            axes = axes[:-1]
-
-        if isinstance(z_plot, pd.Series):
-            plot_series = z_plot
-        else:
-            plot_series = pd.Series(z_plot, index=self.relevant_cells, name='z')
+            if normed_bboxes is False:
+                total_height = total_width / self.width_ratios[0]
+                figsize = (total_width/10/2.54, total_height/10/2.54)
+                _, axes = plt.subplots(len(self.regions), figsize=figsize)
+            else:
+                figsize = (total_width/10/2.54, total_height/10/2.54)
+                _, axes = plt.subplots(len(self.regions) + 1, figsize=figsize)
+                cax = axes[-1]
+                axes = axes[:-1]
 
         fig, axes = map_viz.choropleth(
-            plot_series, self.regions, axes=axes, cax=cax,
+            z_plot, self.regions, axes=axes, cax=cax,
             cbar_kwargs=cbar_kwargs, **choro_kwargs
         )
 
@@ -583,15 +583,29 @@ class Language:
         return fig, axes
 
 
-    def map_word(self, word, vcenter=0, vmin=None, vmax=None, cmap='bwr',
-                 cbar_kwargs=None, **plot_kwargs):
-        cbar_label = f"{self.word_vectors.word_vec_var.split('(')[0]} of {word}"
-        is_regional = self.global_counts['is_regional']
-        word_idx = self.global_counts.loc[is_regional].index.get_loc(word)
-        z_plot = self.word_vectors[:, word_idx]
+    def map_mistake(
+        self, rule_id, metric='uavg_freq_per_word', vmin=None, vmax=None,
+        cmap='plasma', cbar_kwargs=None, **plot_kwargs
+    ):
+        cbar_label = f'{metric} of {rule_id}'
+        z_plot = self.cells_mistakes.loc[pd.IndexSlice[:, :, rule_id], metric]
 
         fig, axes = self.map_continuous_choro(
-            z_plot, cmap=cmap, vcenter=vcenter, vmin=vmin, vmax=vmax,
+            z_plot, cmap=cmap, vmin=vmin, vmax=vmax,
+            cbar_label=cbar_label, cbar_kwargs=cbar_kwargs, **plot_kwargs
+        )
+        return fig, axes
+
+
+    def map_cat(
+        self, cat_id, metric='uavg_freq_per_word', vmin=None, vmax=None,
+        cmap='plasma', cbar_kwargs=None, **plot_kwargs
+    ):
+        cbar_label = f'{metric} of {cat_id}'
+        z_plot = self.cells_mistakes.loc[pd.IndexSlice[:, cat_id, :], metric]
+
+        fig, axes = self.map_continuous_choro(
+            z_plot, cmap=cmap, vmin=vmin, vmax=vmax,
             cbar_label=cbar_label, cbar_kwargs=cbar_kwargs, **plot_kwargs
         )
         return fig, axes

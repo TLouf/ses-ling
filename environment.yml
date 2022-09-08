@@ -22,6 +22,7 @@ dependencies:
     - python-dotenv>=0.5.1
     - tqdm
     - plotly
+    - seaborn
     - ray
     - rectangle-packer
     - pycld2

@@ -212,7 +212,7 @@ def choropleth(
     for ax, reg in zip(axes, regions):
         area_gdf = reg.shape_geodf
         area_gdf.plot(ax=ax, color=null_color, edgecolor='none', alpha=0.3)
-        plot_df = reg.cells_geodf.join(plot_series, how='inner')
+        plot_df = reg.cells_geodf.rename_axis('cell_id').join(plot_series, how='inner')
         plot_df.plot(
             column=plot_series.name, ax=ax, norm=norm, cmap=cmap, **plot_kwargs
         )
