@@ -96,7 +96,7 @@ class Region:
                 self.lt_rules = (
                     pd.read_csv(lt_rules_path)
                      .rename(columns={'ruleId': 'rule_id', 'category': 'cat_id'})
-                     .groupby(['cat_id', 'rule_id'])
+                     .groupby('rule_id')
                      .first()
                 )
 
@@ -458,7 +458,7 @@ class Language:
         if self._user_mistakes is None:
             user_mistakes = (
                 pd.concat([r.user_mistakes for r in self.regions])
-                 .join(self.lt_rules[[]]) # add cat_id index level
+                 .join(self.lt_rules.set_index('cat_id', append=True)) # add cat_id index level
             )
             if -1 in user_mistakes.index.codes[2]:
                 # if nans in cat_id:
@@ -574,14 +574,13 @@ class Language:
 
 
     def get_lt_rules(self, lt_cats_dict):
-        self.lt_rules = text_process.get_lt_rules(lt_cats_dict)
         self.lt_rules = (
             pd.concat(
-                [self.lt_rules]
-                + [r.lt_rules for r in self.regions if r.lt_rules is not None]
+                [r.lt_rules for r in self.regions if r.lt_rules is not None]
             )
-             .groupby(['cat_id', 'rule_id'])
+             .groupby('rule_id')
              .first()
+             .combine_first(text_process.get_lt_rules(lt_cats_dict))
         )
         return self.lt_rules
 

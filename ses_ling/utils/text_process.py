@@ -320,8 +320,8 @@ def get_lt_rules(lt_cats_dict):
             lt_rules['rules'].values.tolist(), index=lt_rules.index
         )
          .join(lt_rules['id'].rename('cat_id').drop_duplicates())
-         .set_index(['cat_id', 'id'])
-         .rename_axis(index={'id': 'rule_id'})
+         .set_index('id')
+         .rename_axis('rule_id')
     )
 
     return lt_rules
