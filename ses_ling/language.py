@@ -542,15 +542,14 @@ class Language:
             udf = self.user_mistakes.join(
                 self.user_df.loc[self.user_mask, 'cell_id']
             )
-            udf['nr_users'] = udf.groupby('cell_id')['count'].transform('size')
             self._cells_mistakes = (
                 udf.groupby(['cell_id', 'cat_id', 'rule_id'])
                  .agg(
                     count=('count', 'sum'),
                     usum_freq_per_word=('freq_per_word', 'sum'),
                     usum_freq_per_tweet=('freq_per_tweet', 'sum'),
-                    nr_users=('nr_users', 'first'),
                 )
+                 .join(self.cells_users_df['nr_users'])
                  .eval("uavg_freq_per_word = usum_freq_per_word / nr_users")
                  .eval("uavg_freq_per_tweet = usum_freq_per_tweet / nr_users")
                  .loc[:, ['count', 'uavg_freq_per_word', 'uavg_freq_per_tweet']]
