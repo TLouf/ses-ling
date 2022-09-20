@@ -22,9 +22,17 @@ def get_agg_metrics(metrics_df, cell_levels_corr, metric_cols: str | list[str] |
 
     stacked_metrics_df = metrics_df[metric_cols].stack().rename('value').to_frame()
     stacked_metrics_df.index = stacked_metrics_df.index.set_names('metric', level=1)
-    stacked_metrics_df = stacked_metrics_df.join(cell_levels_corr)
+    cell_level = cell_levels_corr.index.names[0]
+    groupby_cols = [cell_level, 'metric']
+    if stacked_metrics_df.index.names[0] == cell_level:
+        # when there's actually no aggregation to make
+        stacked_metrics_df = stacked_metrics_df.join(
+            cell_levels_corr.groupby(cell_level)['w_sum'].first()
+        )
+        stacked_metrics_df['w_normed'] = 1
+    else:
+        stacked_metrics_df = stacked_metrics_df.join(cell_levels_corr)
 
-    groupby_cols = [cell_levels_corr.index.names[0], 'metric']
     grouped = stacked_metrics_df.groupby(groupby_cols)
     stacked_metrics_df = (
         stacked_metrics_df.assign(avg=grouped['value'].transform('mean'))

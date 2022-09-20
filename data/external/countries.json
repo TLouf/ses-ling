@@ -71,7 +71,17 @@
                 "fname": "Indices_of_Multiple_Deprivation_(IMD)_2019/Indices_of_Multiple_Deprivation_(IMD)_2019.shp",
                 "index_col": "lsoa11cd",
                 "weight_col": "totpop",
-                "score_cols": [".*score"]
+                "score_cols": [".*score"],
+                "read_kwargs": {"skip_geometry": true}
+            },
+            "total_income": {
+                "fname": "totalannualincome2018.csv",
+                "index_col": {"msoa code": "msoa11cd"},
+                "weight_from": "IMD",
+                "score_cols": ["total annual income"],
+                "read_kwargs": {
+                    "header": 4, "encoding_errors": "ignore", "thousands": ","
+                }
             }
         }
     },
