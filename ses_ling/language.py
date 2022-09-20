@@ -78,17 +78,7 @@ class Region:
             self.ses_df = self.load_ses_df()
 
         if self.cell_lvls_corr is None:
-            # may not be used but does not cost much to load (just a small csv)
-            cell_shapefile_kind = self.cell_shapefiles[self.cell_size]["kind"]
-            corr_path = (
-                self.paths.ext_data
-                / self.cell_levels_corr_files[cell_shapefile_kind]
-            )
-            agg_level = self.cells_geodf.index.name
-            weight_col = self.ses_data_options[self.ses_idx]['weight_col']
-            self.cell_levels_corr = spatial_agg.levels_corr(
-                corr_path, self.ses_df, agg_level, weight_col=weight_col
-            )
+            self.cell_levels_corr = self.load_cell_levels_corr()
 
         if self.lt_rules is None:
             lt_rules_path = self.paths.rule_category
@@ -191,6 +181,27 @@ class Region:
 
         return ses_data.read_df(
             self.paths.ext_data, **self.ses_data_options[self.ses_idx]
+        )
+
+    def load_cell_levels_corr(self):
+        cell_shapefile_kind = self.cell_shapefiles[self.cell_size]["kind"]
+        corr_path = (
+            self.paths.ext_data
+            / self.cell_levels_corr_files[cell_shapefile_kind]
+        )
+        agg_level = self.cells_geodf.index.name
+        opt = self.ses_data_options[self.ses_idx]
+        if 'weight_col' in opt:
+            weight_df = self.ses_df
+            weight_col = opt['weight_col']
+        else:
+            weight_opt = self.ses_data_options[opt['weight_from']]
+            weight_col = weight_opt['weight_col']
+            weight_df = ses_data.read_df(
+                self.paths.ext_data, **weight_opt
+            )
+        return spatial_agg.levels_corr(
+            corr_path, weight_df, agg_level, weight_col=weight_col
         )
 
     @property
