@@ -520,6 +520,16 @@ class Language:
         return self._cells_ses_df
 
 
+    def add_ses_idx(self, ses_idx):
+        for r in self.regions:
+            r.ses_df = r.load_ses_df(ses_idx)
+            cell_levels_corr = r.load_cell_levels_corr()
+            agg_metrics = spatial_agg.get_agg_metrics(
+                r.ses_df, cell_levels_corr
+            )
+            self._cells_ses_df = pd.concat([self._cells_ses_df, agg_metrics])
+
+
     @property
     def cells_users_df(self):
         if self._cells_users_df is None:
