@@ -284,8 +284,10 @@ class Language:
     nighttime_acty_th: float = 0.5
     all_acty_th: float = 0.1
     count_th: int = 3
-    _user_nr_words_th: int = 0
-    _cells_nr_users_th: int = 0
+    user_nr_words_th: InitVar[int] = 0
+    cells_nr_users_th: InitVar[int] = 0
+    _user_nr_words_th: int = field(init=False)
+    _cells_nr_users_th: int = field(init=False)
     # Data containers (frames, arrays)
     cells_geodf: geopd.GeoDataFrame = field(init=False)
     lt_rules: pd.DataFrame = field(init=False)
@@ -299,7 +301,11 @@ class Language:
     _cells_mistakes: pd.DataFrame | None = None
     _width_ratios: np.ndarray | None = None
 
-    def __post_init__(self, _cc_init_params, all_cntr_shapes, countries_dict):
+    def __post_init__(
+        self, _cc_init_params, all_cntr_shapes, countries_dict, user_nr_words_th, cells_nr_users_th
+    ):
+        self._user_nr_words_th = user_nr_words_th
+        self._cells_nr_users_th = cells_nr_users_th
         if len(self.regions) < len(_cc_init_params):
             missing_ccs = set(_cc_init_params.keys()).difference({reg.cc for reg in self.regions})
             for cc in missing_ccs:
