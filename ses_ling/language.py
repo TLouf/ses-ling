@@ -548,26 +548,6 @@ class Language:
 
 
     @property
-    def cells_mistakes(self):
-        if self._cells_mistakes is None:
-            udf = self.user_mistakes.join(
-                self.user_df.loc[self.user_mask, 'cell_id']
-            )
-            self._cells_mistakes = (
-                udf.groupby(['cell_id', 'cat_id', 'rule_id'])
-                 .agg(
-                    count=('count', 'sum'),
-                    usum_freq_per_word=('freq_per_word', 'sum'),
-                    usum_freq_per_tweet=('freq_per_tweet', 'sum'),
-                )
-                 .join(self.cells_users_df['nr_users'])
-                 .eval("uavg_freq_per_word = usum_freq_per_word / nr_users")
-                 .eval("uavg_freq_per_tweet = usum_freq_per_tweet / nr_users")
-                 .loc[:, ['count', 'uavg_freq_per_word', 'uavg_freq_per_tweet']]
-            )
-        return self._cells_mistakes
-
-    @property
     def cells_nr_users_th(self):
         return self._cells_nr_users_th
 
@@ -603,6 +583,27 @@ class Language:
     @property
     def relevant_cells(self):
         return self.cells_mask.loc[self.cells_mask].index
+
+
+    @property
+    def cells_mistakes(self):
+        if self._cells_mistakes is None:
+            udf = self.user_mistakes.join(
+                self.user_df.loc[self.user_mask, 'cell_id']
+            )
+            self._cells_mistakes = (
+                udf.groupby(['cell_id', 'cat_id', 'rule_id'])
+                 .agg(
+                    count=('count', 'sum'),
+                    usum_freq_per_word=('freq_per_word', 'sum'),
+                    usum_freq_per_tweet=('freq_per_tweet', 'sum'),
+                )
+                 .join(self.cells_users_df['nr_users'])
+                 .eval("uavg_freq_per_word = usum_freq_per_word / nr_users")
+                 .eval("uavg_freq_per_tweet = usum_freq_per_tweet / nr_users")
+                 .loc[:, ['count', 'uavg_freq_per_word', 'uavg_freq_per_tweet']]
+            )
+        return self._cells_mistakes
 
 
     def get_lt_rules(self, lt_cats_dict):
