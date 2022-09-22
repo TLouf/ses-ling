@@ -467,7 +467,8 @@ class Language:
 
     @user_mask.deleter
     def user_mask(self):
-        self.user_df = self.user_df.drop(columns='is_relevant', errors='ignore')
+        if self._user_df is not None:
+            self.user_df = self.user_df.drop(columns='is_relevant', errors='ignore')
 
 
     @property
@@ -590,9 +591,14 @@ class Language:
             )
         return self.cells_geodf['is_relevant']
 
+    @cells_mask.setter
+    def cells_mask(self, mask):
+        self.cells_geodf['is_relevant'] = mask
+
     @cells_mask.deleter
     def cells_mask(self):
-        self.cells_geodf = self.cells_geodf.drop(columns='is_relevant', errors='ignore')
+        if self.cells_geodf is not None:
+            self.cells_geodf = self.cells_geodf.drop(columns='is_relevant', errors='ignore')
 
     @property
     def relevant_cells(self):
