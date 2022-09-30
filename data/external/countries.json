@@ -67,21 +67,66 @@
             "census": "Output_Area_to_Lower_Layer_Super_Output_Area_to_Middle_Layer_Super_Output_Area_to_Local_Authority_District__December_2020__Lookup_in_England_and_Wales.csv"
         },
         "ses_data_options": {
+            "msoa_pop": {
+                "fname": "msoa_pop.csv",
+                "index_col": {"geography code": "msoa11cd"},
+                "weight_col": {"Variable: All usual residents; measures: Value": "total_pop"},
+                "score_cols": [{
+                    "Variable: Density (number of persons per hectare); measures: Value": "density_pop"
+                }]
+            },
             "IMD": {
                 "fname": "Indices_of_Multiple_Deprivation_(IMD)_2019/Indices_of_Multiple_Deprivation_(IMD)_2019.shp",
                 "index_col": "lsoa11cd",
-                "weight_col": "totpop",
+                "weight_col": {"TotPop": "total_pop"},
                 "score_cols": [".*score"],
                 "read_kwargs": {"skip_geometry": true}
             },
             "total_income": {
                 "fname": "totalannualincome2018.csv",
-                "index_col": {"msoa code": "msoa11cd"},
-                "weight_from": "IMD",
-                "score_cols": ["total annual income"],
+                "index_col": {"MSOA code": "msoa11cd"},
+                "weight_from": "msoa_pop",
+                "score_cols": [{"Total annual income ()": "total_income"}],
                 "read_kwargs": {
                     "header": 4, "encoding_errors": "ignore", "thousands": ","
                 }
+            },
+            "net_income": {
+                "fname": "netannualincome2018.csv",
+                "index_col": {"MSOA code": "msoa11cd"},
+                "weight_from": "msoa_pop",
+                "score_cols": [{"Net annual income ()": "net_income"}],
+                "read_kwargs": {
+                    "header": 4, "encoding_errors": "ignore", "thousands": ","
+                }
+            },
+            "net_income_after_housing": {
+                "fname": "netannualincomeafterhousingcosts2018.csv",
+                "index_col": {"MSOA code": "msoa11cd"},
+                "weight_from": "msoa_pop",
+                "score_cols": [{
+                    "Net annual income after housing costs ()": "net_income_after_housing"
+                }],
+                "read_kwargs": {
+                    "header": 4, "encoding_errors": "ignore", "thousands": ","
+                }
+            },
+            "net_income_before_housing": {
+                "fname": "netannualincomebeforehousingcosts2018.csv",
+                "index_col": {"MSOA code": "msoa11cd"},
+                "weight_from": "msoa_pop",
+                "score_cols": [{
+                    "Net annual income before housing costs ()": "net_income_before_housing"
+                }],
+                "read_kwargs": {
+                    "header": 4, "encoding_errors": "ignore", "thousands": ","
+                }
+            },
+            "msoa_nomis": {
+                "fname": "msoa_nomis_agg_tables.csv",
+                "index_col": {"geography code": "msoa11cd"},
+                "weight_from": "msoa_pop",
+                "score_cols": [".*"]
             }
         }
     },
