@@ -855,11 +855,28 @@ class Language:
         )
 
 
+    def pre_process_z_plot(self, z_plot) -> pd.Series:
+        if not isinstance(z_plot, pd.Series):
+            if len(z_plot) == len(self.relevant_cells):
+                index = self.relevant_cells
+            elif len(z_plot) == len(self.cells_geodf.index):
+                index = self.cells_geodf.index
+            else:
+                raise ValueError(
+                    "Input z values' length does not match either the number of "
+                    "relevant_cells or the total number of cells"
+                )
+            z_plot = pd.Series(z_plot, index=index, name='z_plot')
+        return z_plot
+
+
     def map_continuous_choro(
-        self, z_plot: pd.Series, normed_bboxes: bool | np.ndarray = True,
+        self, z_plot, normed_bboxes: bool | np.ndarray = True,
         total_width=178, total_height=None, axes=None, cax=None,
-        cbar_kwargs=None, **choro_kwargs
+        cbar_kwargs=None, save=False, **choro_kwargs
     ):
+        z_plot = self.pre_process_z_plot(z_plot)
+
         if normed_bboxes is True:
             # calculate optimal position
             normed_bboxes, (total_width, total_height) = self.get_maps_pos(
@@ -876,6 +893,15 @@ class Language:
                 _, axes = plt.subplots(len(self.regions) + 1, figsize=figsize)
                 cax = axes[-1]
                 axes = axes[:-1]
+
+        if save and not choro_kwargs.get('save_path'):
+            cell_sizes = '-'.join(r.cell_size for r in self.regions)
+            choro_kwargs['save_path'] = (
+                self.paths.case_figs
+                / self.paths.map_fig_fname_fmt.format(
+                    metric=z_plot.name, cell_sizes=cell_sizes
+                )
+            )
 
         fig, axes = map_viz.choropleth(
             z_plot, self.regions, axes=axes, cax=cax,
@@ -916,3 +942,21 @@ class Language:
             cbar_label=cbar_label, cbar_kwargs=cbar_kwargs, **plot_kwargs
         )
         return fig, axes
+
+
+    def map_interactive(self, z_plot, tooltip_df=None, save=False, save_path=None):
+        z_plot = self.pre_process_z_plot(z_plot)
+
+        plot_gdf = self.cells_geodf[['geometry']].join(z_plot, how='inner')
+        if tooltip_df is not None:
+            plot_gdf = plot_gdf.join(tooltip_df)
+        m = plot_gdf.explore(z_plot.name)
+
+        if save:
+            cell_sizes = '-'.join(r.cell_size for r in self.regions)
+            if save_path is None:
+                save_path = self.paths.case_figs / self.paths.map_fig_fname_fmt.format(
+                    metric=z_plot.name, cell_sizes=cell_sizes
+                )
+            m.save(save_path.with_suffix('.html'))
+        return m

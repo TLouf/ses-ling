@@ -76,6 +76,9 @@ class ProjectPaths:
         '{kind}_lang={lc}_cc={cc}_years={year_from}-{year_to}_'
         'cell_size={cell_size}.parquet'
     )
+    map_fig_fname_fmt: str = (
+        '{metric}_cell_sizes={cell_sizes}.pdf'
+    )
 
     def __post_init__(self):
         self.proj_data = self.proj / 'data'
