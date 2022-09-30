@@ -62,7 +62,7 @@ class ProjectPaths:
     user_residence_cell_fname_fmt: str = (
         'user_residence_cell_{year_from}-{year_to}_'
         'nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_'
-        'count_th={count_th}.parquet'
+        'count_th={count_th}_cell_size={res_attrib_level}.parquet'
     )
     user_mistakes_fname_fmt: str = (
         'user_mistakes_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_'
@@ -85,6 +85,7 @@ class ProjectPaths:
         self.processed_data = self.proj_data / 'processed'
         self.shp_file_fmt = self.ext_data / '{0}' / '{0}.shp'
         self.countries_shapefile = format_path(self.shp_file_fmt, self.countries_shapefile_name)
+        self.countries_dict = self.ext_data / 'countries.json'
         self.figs = self.proj / 'reports' / 'figures'
         self.case_figs = self.figs / '{lc}' / '{str_cc}' / '{year_from}-{year_to}'
         self.resident_ids = (
