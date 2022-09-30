@@ -198,6 +198,7 @@ class Region:
                 )
             else:
                 # Else load according to cell_size_spec using cells_geodf's setter
+                del self.cells_geodf
                 self.cells_geodf = self.cells_geodf
 
             if _cell_size != self.res_attrib_level and _cell_size in self.cell_shapefiles.keys():
