@@ -825,6 +825,15 @@ class Language:
         self.cells_mistakes = None
 
 
+    def select_mistakes(self, metric='uavg_freq_per_word', cat_id=None, rule_id=None):
+        if cat_id is None:
+            cat_id = slice(None)
+        if rule_id is None:
+            rule_id = slice(None)
+        idx_sel = (slice(None), cat_id, rule_id)
+        return self.cells_mistakes.loc[idx_sel, metric].groupby('cell_id').sum()
+
+
     def make_subregions_mask(self, regions_subregions_dict, set_cells_mask=False):
         # set_cells_mask defaults to False because setting cells_mask deletes
         # cells_mistakes
@@ -938,25 +947,11 @@ class Language:
 
 
     def map_mistake(
-        self, rule_id, metric='uavg_freq_per_word', vmin=None, vmax=None,
+        self, cat_id=None, rule_id=None, metric='uavg_freq_per_word', vmin=None, vmax=None,
         cmap='plasma', cbar_kwargs=None, **plot_kwargs
     ):
-        cbar_label = f'{metric} of {rule_id}'
-        z_plot = self.cells_mistakes.loc[pd.IndexSlice[:, :, rule_id], metric]
-
-        fig, axes = self.map_continuous_choro(
-            z_plot, cmap=cmap, vmin=vmin, vmax=vmax,
-            cbar_label=cbar_label, cbar_kwargs=cbar_kwargs, **plot_kwargs
-        )
-        return fig, axes
-
-
-    def map_cat(
-        self, cat_id, metric='uavg_freq_per_word', vmin=None, vmax=None,
-        cmap='plasma', cbar_kwargs=None, **plot_kwargs
-    ):
-        cbar_label = f'{metric} of {cat_id}'
-        z_plot = self.cells_mistakes.loc[pd.IndexSlice[:, cat_id, :], metric]
+        cbar_label = f'{metric} of {rule_id or cat_id}'
+        z_plot = self.select_mistakes(metric=metric, cat_id=cat_id, rule_id=rule_id)
 
         fig, axes = self.map_continuous_choro(
             z_plot, cmap=cmap, vmin=vmin, vmax=vmax,
@@ -973,7 +968,7 @@ class Language:
             plot_gdf = plot_gdf.join(tooltip_df)
         m = plot_gdf.explore(z_plot.name)
 
-        if save:
+        if save or save_path:
             cell_sizes = '-'.join(r.cell_size for r in self.regions)
             if save_path is None:
                 save_path = self.paths.case_figs / self.paths.map_fig_fname_fmt.format(
@@ -981,3 +976,12 @@ class Language:
                 )
             m.save(save_path.with_suffix('.html'))
         return m
+
+
+    def explore_mistake(
+        self, cat_id=None, rule_id=None, metric='uavg_freq_per_word',
+        **map_interactive_kw
+    ):
+        cbar_label = f'{metric} of {rule_id or cat_id}'
+        z_plot = self.select_mistakes(metric=metric, cat_id=cat_id, rule_id=rule_id)
+        return self.map_interactive(z_plot, **map_interactive_kw)
