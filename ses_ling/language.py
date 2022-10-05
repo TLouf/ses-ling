@@ -239,6 +239,8 @@ class Region:
 
 
     def load_ses_df(self, ses_idx=None):
+        # Cannot have multiple indices in `ses_df` here because they may be on different
+        # cell levels. Better to aggregate them in Language.
         if ses_idx is not None:
             self.ses_idx = ses_idx
         self.ses_df = ses_data.read_df(
@@ -292,9 +294,10 @@ class Region:
         corr_df.columns = corr_df.columns.str.lower()
         isin_area = pd.Series(False, name='isin_area', index=self.cells_geodf.index)
         for r, col in subregions_dict.items():
+            # TODO: when col not in corr_df, read cell_levels_corr_files[col]
             idc_region = pd.Index(corr_df.loc[corr_df[col] == r, self.cells_geodf.index.name]).unique()
             isin_area.loc[idc_region] = True
-        print(f"{isin_area.sum()} cells in selected subregions.")
+            print(f"{idc_region.size} cells in {r}.")
         return isin_area
 
 
@@ -507,7 +510,7 @@ class Language:
     def update_regions_from_dict(self, d):
         # useful when changes are made to countries.json
         for r in self.regions:
-            r.update_from_dict(d[r.cc])
+            r.update_from_dict(d.get(r.cc, {}))
 
 
     def to_dict(self):
@@ -546,7 +549,7 @@ class Language:
         with open(self.paths.countries_dict) as f:
             countries_dict = json.load(f)
         for r in self.regions:
-            r.init_dict = countries_dict[r.cc]
+            r.init_dict = countries_dict.get(r.cc, {})
 
 
     def change_cell_sizes(self, **cc_cell_size_dict):
@@ -787,7 +790,7 @@ class Language:
     def cells_mask(self):
         # private here to avoid RecursionError
         if self._cells_geodf is not None:
-            self.cells_geodf = self.cells_geodf.drop(columns='is_relevant', errors='ignore')
+            self._cells_geodf = self.cells_geodf.drop(columns='is_relevant', errors='ignore')
             del self.cells_mistakes
 
     @property
