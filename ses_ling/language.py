@@ -825,6 +825,20 @@ class Language:
         self.cells_mistakes = None
 
 
+    def make_subregions_mask(self, regions_subregions_dict, set_cells_mask=False):
+        # set_cells_mask defaults to False because setting cells_mask deletes
+        # cells_mistakes
+        dict_cc = self.dict_cc
+        mask = pd.Series(dtype=bool)
+        for cc, subregions_dict in regions_subregions_dict.items():
+            r = dict_cc[cc]
+            mask = pd.concat([mask, r.make_subregions_mask(subregions_dict)])
+        mask = self.cells_mask & mask.reindex(self.cells_geodf.index).fillna(False)
+        if set_cells_mask:
+            self.cells_mask = mask
+        return mask
+
+
     def get_lt_rules(self, lt_cats_dict):
         self.lt_rules = (
             pd.concat(
