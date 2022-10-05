@@ -715,9 +715,11 @@ class Language:
         self.cells_ses_df = None
 
     def add_ses_idx(self, ses_idx):
+        ses_idx = {ses_idx} if isinstance(ses_idx, str) else set(ses_idx)
         for r in self.regions:
-            if ses_idx in r.ses_data_options:
-                r.ses_df = r.load_ses_df(ses_idx)
+            idx_intersect = set(r.ses_data_options.keys()).intersection(ses_idx)
+            for idx in idx_intersect:
+                r.ses_df = r.load_ses_df(idx)
                 agg_metrics = spatial_agg.get_agg_metrics(
                     r.ses_df, r.weighted_cell_levels_corr
                 )
