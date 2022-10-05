@@ -6,6 +6,7 @@ import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import rpack
+from shapely.geometry import box
 
 import ses_ling.utils.geometry as geo_utils
 
@@ -178,7 +179,7 @@ def choropleth(
     plot_series, regions, axes=None, cax=None, cmap=None,
     norm=None, vmin=None, vmax=None, vcenter=None,
     cbar_label=None, null_color='gray', save_path=None, show=True,
-    cbar_kwargs=None, **plot_kwargs
+    cbar_kwargs=None, clip_to_cells=False, **plot_kwargs
 ):
     '''
     Make a choropleth map from continuous values given in `plot_series` for some given
@@ -210,9 +211,11 @@ def choropleth(
         norm.vmax = vmax
     
     for ax, reg in zip(axes, regions):
-        area_gdf = reg.shape_geodf
-        area_gdf.plot(ax=ax, color=null_color, edgecolor='none', alpha=0.3)
         plot_df = reg.cells_geodf.rename_axis('cell_id').join(plot_series, how='inner')
+        area_gdf = reg.shape_geodf.copy()
+        if clip_to_cells:
+            area_gdf = area_gdf.clip(box(*plot_df.total_bounds))
+        area_gdf.plot(ax=ax, color=null_color, edgecolor='none', alpha=0.3)
         plot_df.plot(
             column=plot_series.name, ax=ax, norm=norm, cmap=cmap, **plot_kwargs
         )
