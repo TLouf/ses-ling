@@ -528,6 +528,10 @@ class Language:
         return '-'.join(self.list_cc)
 
     @property
+    def dict_cc(self):
+        return {reg.cc: reg for reg in self.regions}
+        
+    @property
     def paths(self):
         self._paths = paths_utils.ProjectPaths()
         self._paths.partial_format(**self.to_dict())
