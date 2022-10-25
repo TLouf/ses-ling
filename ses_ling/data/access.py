@@ -397,7 +397,7 @@ def mongo_groupby_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
         if len(id_keys) > 1:
             index = pd.MultiIndex.from_arrays(list(ids_dict.values()), names=id_keys)
         else:
-            index = pd.Index(list(ids_dict.values()), name=id_keys[0])
+            index = pd.Index(list(ids_dict.values())[0], name=id_keys[0])
 
         df = pd.DataFrame(vals_dict, index=index)
 
