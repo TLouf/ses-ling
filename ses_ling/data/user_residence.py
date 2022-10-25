@@ -218,7 +218,7 @@ def places_to_cells(
         places_top_cells_cumoverlap < top_cells_cumoverlap_th
     ]
     poly_places_to_cells = (
-        poly_places_to_cells['ratio_clipped_overlap']
+        poly_places_to_cells[['ratio_clipped_overlap']]
          .rename(columns={'ratio_clipped_overlap': 'ratio'})
          .drop(index=places_to_remove, level='id')
     )
@@ -234,12 +234,12 @@ def get_cell_user_activity(
     `subcells_to_cells` Series making the correspondence between the indices of the
     subcells (in its Index) and the ones of the final cells (its values)
     '''
-    og_cells_idx_name = subcells_to_cells.index.name
+    new_cells_name = subcells_to_cells.name
     user_gps_counts = (
         subcells_user_counts_from_gps.join(subcells_to_cells.rename_axis('cell_id'))
-         .groupby(['user_id', og_cells_idx_name, 'is_daytime'])
+         .groupby(['user_id', new_cells_name, 'is_daytime'])
          .sum()
-         .rename_axis(index={og_cells_idx_name: 'cell_id'})
+         .rename_axis(index={new_cells_name: 'cell_id'})
     )
 
     user_acty = (
@@ -259,7 +259,7 @@ def get_cell_user_activity(
     )
     return user_acty
 
-    
+
 def assign(user_acty, nighttime_acty_th=0.5, all_acty_th=0.1, count_th=3):
     '''
     Make the user to residence cell final assignation. Take the cells which accounted
@@ -281,4 +281,3 @@ def assign(user_acty, nighttime_acty_th=0.5, all_acty_th=0.1, count_th=3):
          .reset_index().set_index('user_id') # ['cell_id']
     )
     return user_residence_cells
-    
