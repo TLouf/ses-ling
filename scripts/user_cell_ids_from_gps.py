@@ -33,7 +33,8 @@ if __name__ == '__main__':
     simplified_lsoas = geopd.read_file(paths.ext_data / base_name / f'{base_name}.shp').set_index('LSOA11CD').rename_axis('lsoa_id')
 
     cell_counts = user_residence.agg_points_to_cells(
-        year_from, year_to, colls, resident_ids, simplified_lsoas, timezone=cc_dict['timezone']
+        year_from, year_to, colls, resident_ids, simplified_lsoas, timezone=cc_dict['timezone'],
+        hour_start_day=8, hour_end_day=18
     )
 
     save_path = paths.user_cells_from_gps

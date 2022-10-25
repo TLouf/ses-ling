@@ -14,7 +14,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def visited_places_in_year(
-    year: int, colls, resident_ids, timezone='UTC', pre_filter: qr.Filter | None = None
+    year: int, colls, resident_ids, timezone='UTC', pre_filter: qr.Filter | None = None,
+    hour_start_day=8, hour_end_day=18
 ):
     db = f'twitter_{year}'
     f = (
@@ -41,8 +42,8 @@ def visited_places_in_year(
                 "$addFields": {
                     'is_daytime': {
                         '$and': [
-                            {'$gte': ["$hour", 8]},
-                            {'$lt': ["$hour", 18]},
+                            {'$gte': ["$hour", hour_start_day]},
+                            {'$lt': ["$hour", hour_end_day]},
                         ]
                     },
                 }
@@ -73,14 +74,16 @@ def visited_places_in_year(
 
 
 def agg_visited_places(
-    year_from, year_to, colls, resident_ids, timezone='UTC', pre_filter=None
+    year_from, year_to, colls, resident_ids, timezone='UTC', pre_filter=None,
+    hour_start_day=8, hour_end_day=18
 ):
     visited_places = pd.DataFrame()
     for year in range(year_from, year_to + 1):
         LOGGER.info(f' Starting on {year}')
         visited_places = visited_places.add(
             visited_places_in_year(
-                year, colls, resident_ids, timezone=timezone, pre_filter=pre_filter
+                year, colls, resident_ids, timezone=timezone, pre_filter=pre_filter,
+                hour_start_day=hour_start_day, hour_end_day=hour_end_day
             ),
             fill_value=0,
         )
@@ -91,9 +94,9 @@ def agg_visited_places(
 
 
 def points_to_cells_in_year(
-    year, colls, resident_ids, latlon_cells_gdf, pre_filter=None, timezone='UTC'
+    year, colls, resident_ids, latlon_cells_gdf, pre_filter=None, timezone='UTC',
+    hour_start_day=8, hour_end_day=18
 ):
-    # TODO
     if pre_filter is None:
         # Here no need for base filter as chunk filters are based on date interval.
         pre_filter = qr.Filter()
@@ -117,7 +120,7 @@ def points_to_cells_in_year(
         tweets = tweets.join(residents_series, on='user_id', how='inner')
         tweets['created_at'] = tweets['created_at'].dt.tz_localize('UTC').dt.tz_convert(timezone)
         hour = tweets['created_at'].dt.hour
-        tweets['is_daytime'] = (hour >= 8) & (hour < 18)
+        tweets['is_daytime'] = (hour >= hour_start_day) & (hour < hour_end_day)
         geo = geopd.points_from_xy(tweets['x'], tweets['y'], crs='epsg:4326')
         tweets = geopd.GeoDataFrame(tweets[['user_id', 'is_daytime']], geometry=geo)
         tweets = tweets.sjoin(
@@ -132,9 +135,9 @@ def points_to_cells_in_year(
     return cell_counts
 
 
-
 def agg_points_to_cells(
-    year_from, year_to, colls, resident_ids, cells_gdf, pre_filter=None, timezone='UTC'
+    year_from, year_to, colls, resident_ids, cells_gdf, pre_filter=None, timezone='UTC',
+    hour_start_day=8, hour_end_day=18
 ):
     latlon_cells_gdf = cells_gdf.to_crs('epsg:4326')
     cell_counts = pd.DataFrame()
@@ -142,7 +145,8 @@ def agg_points_to_cells(
         cell_counts = cell_counts.add(
             points_to_cells_in_year(
                 year, colls, resident_ids, latlon_cells_gdf,
-                pre_filter=pre_filter, timezone=timezone
+                pre_filter=pre_filter, timezone=timezone,
+                hour_start_day=hour_start_day, hour_end_day=hour_end_day
             ),
             fill_value=0,
         )
@@ -153,6 +157,13 @@ def agg_points_to_cells(
 def places_to_cells(
     places_gdf, cells_gdf, xy_proj='epsg:3857', ntop=2, top_cells_cumoverlap_th=0.9, reg_overlap_th=0.6
 ):
+    '''
+    Places which don't have at least a ratio of their area superior to `reg_overlap_th`
+    overlapping with the region under consideration are discarded. The `ntop` cells with
+    most overlap with a given place must overlap at least a ratio
+    `top_cells_cumoverlap_th` of the place. If so, the place is kept with its ratios of
+    overlap with the `ntop` cells, otherwise the place is discarded.
+    '''
     if 'area' not in cells_gdf:
         cells_gdf['area'] = cells_gdf.area
 
@@ -192,11 +203,11 @@ def places_to_cells(
     )
     idc_foreign = poly_places_to_cells.index.levels[0][place_reg_overlap_mask]
     poly_places_to_cells = poly_places_to_cells.drop(index=idc_foreign, level='id')
-    # since groubpy preserves order within each group, the cumsum is computed from the
-    # largest to the smallest value in each group. Then we take the first four (at most,
-    # if there are fewer rows they are kept, unlike when using `nth`), in order to take
-    # the fourth. For each place, this value then corresponds to the total ratio of
-    # overlap of the place summed over the 4 cells it overlaps the most with.
+    # Since groubpy preserves order within each group, the cumsum is computed from the
+    # largest to the smallest value in each group. Then we take the first `ntop` (at
+    # most, if there are fewer rows they are kept, unlike when using `nth`), in order to
+    # take the `ntop`th. For each place, this value then corresponds to the total ratio
+    # of overlap of the place summed over the `ntop` cells it overlaps the most with.
     places_top_cells_cumoverlap = (
         poly_places_to_cells.sort_values(by='ratio_overlap', ascending=False)
          .groupby('id').cumsum()
@@ -220,7 +231,7 @@ def get_cell_user_activity(
     user_places_counts, places_to_cells, subcells_user_counts_from_gps, subcells_to_cells
 ):
     '''
-    `subcells_to_cells` Series making th ecorrespondence between the indices of the
+    `subcells_to_cells` Series making the correspondence between the indices of the
     subcells (in its Index) and the ones of the final cells (its values)
     '''
     og_cells_idx_name = subcells_to_cells.index.name
@@ -251,8 +262,11 @@ def get_cell_user_activity(
     
 def assign(user_acty, nighttime_acty_th=0.5, all_acty_th=0.1, count_th=3):
     '''
-    `subcells_to_cells` Series making the correspondence between the indices of the
-    subcells (in its Index) and the ones of the final cells (its values)
+    Make the user to residence cell final assignation. Take the cells which accounted
+    for more than a proportion `nighttime_acty_th` of tweets posted by a given user
+    during nighttime (outside of [`hour_start_day`, `hour_end_day` - 1] interval), that
+    also accounted for more than a proportion `all_acty_th` of all activity of the user,
+    and were the user tweeted from at least `count_th` times.
     '''
     # not optimal, extract nighttime part first?
     nighttime_acty_mask = user_acty['prop_user_by_time'] >= nighttime_acty_th
