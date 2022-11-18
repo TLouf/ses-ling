@@ -92,3 +92,4 @@ data/**
 *.sh
 
 references/**
+reports/figures/**
