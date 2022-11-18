@@ -19,7 +19,7 @@ if __name__ == '__main__':
     year_to = int(sys.argv[3])
 
     paths = path_utils.ProjectPaths()
-    with open(paths.ext_data / 'countries.json') as f:
+    with open(paths.countries_dict) as f:
         countries_dict = json.load(f)
     cc_dict = countries_dict[cc]
     paths.partial_format(cc=cc, year_from=year_from, year_to=year_to, **cc_dict)

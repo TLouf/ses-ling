@@ -183,14 +183,14 @@ if __name__ == '__main__':
     year_to = int(sys.argv[4])
 
     paths = path_utils.ProjectPaths()
-    with open(paths.ext_data / 'countries.json') as f:
+    with open(paths.countries_dict) as f:
         countries_dict = json.load(f)
     cc_dict = countries_dict[cc]
     cc_dict['cc'] = cc
     cc_dict['lc'] = lc
     cc_dict['year_from'] = year_from
     cc_dict['year_to'] = year_to
-    cc_dict['cell_kind'] = 'LSOA_BGC'
+    cc_dict['cell_kind'] = 'MSOA_BGC'
 
     assign_kwargs = dict(
         nighttime_acty_th = 0.5,
