@@ -62,7 +62,8 @@ class ProjectPaths:
     user_residence_cell_fname_fmt: str = (
         'user_residence_cell_{year_from}-{year_to}_'
         'nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_'
-        'count_th={count_th}_cell_size={res_attrib_level}.parquet'
+        'count_th={count_th}_cell_size={res_attrib_level}_gps_dups_th='
+        '{gps_dups_th}_pois_dups_th={pois_dups_th}.parquet'
     )
     user_mistakes_fname_fmt: str = (
         'user_mistakes_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_'
@@ -97,7 +98,7 @@ class ProjectPaths:
         self.user_cells_from_gps = (
             self.interim_data
             / '{cc}'
-            / 'user_cells_from_gps_{cell_kind}_{year_from}-{year_to}.parquet'
+            / 'user_cells_from_gps_{cell_kind}_{year_from}-{year_to}_gps_dups_th={gps_dups_th}.parquet'
         )
         self.user_places = (
             self.interim_data / '{cc}' / 'user_places_{year_from}-{year_to}.parquet'

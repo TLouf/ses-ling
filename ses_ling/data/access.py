@@ -236,7 +236,8 @@ def tweets_res_to_dict(
 
                 tweets_dict[col].append(value)
 
-    if 'coordinates' in tweets_dict and coords_as == 'xy':
+    # first check to check if res is not empty
+    if last_id != '' and 'coordinates' in tweets_dict and coords_as == 'xy':
         coords_arr = np.array(tweets_dict.pop('coordinates'))
         tweets_dict['x'] = coords_arr[:, 0]
         tweets_dict['y'] = coords_arr[:, 1]
@@ -371,7 +372,7 @@ def dt_chunk_filters_mongo(db, colls: str | list, filter, start, end, chunksize=
     return chunk_filters
 
 
-def mongo_groupby_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
+def groupby_res_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
     '''
     From the result `res` of a Mongo aggregation defined in the pipeline `pipeline`
     containing a group stage, returns a DataFrame containing the result, with a
@@ -408,6 +409,11 @@ def mongo_groupby_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
         df = pd.DataFrame(list(res)).set_index('_id').rename_axis(idx_name)
     
     return df
+
+
+def mongo_groupby_to_df(groupby: qr.MongoGroupBy, **agg_kwargs):
+    res = groupby.agg(**agg_kwargs)
+    return groupby_res_to_df(res, groupby.pipeline)
 
 
 def gps_filter(f: qr.Filter):

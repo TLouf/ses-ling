@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 import logging
 import datetime
 
@@ -6,7 +7,7 @@ import pandas as pd
 import geopandas as geopd
 import querier as qr
 
-
+import ses_ling.utils.pandas as pd_utils
 import ses_ling.data.access as data_access
 
 
@@ -16,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 def visited_places_in_year(
     year: int, colls, resident_ids, timezone='UTC', pre_filter: qr.Filter | None = None,
     hour_start_day=8, hour_end_day=18
-):
+) -> pd.DataFrame:
     db = f'twitter_{year}'
     f = (
         data_access.base_tweets_filter(year)
@@ -76,7 +77,7 @@ def visited_places_in_year(
 def agg_visited_places(
     year_from, year_to, colls, resident_ids, timezone='UTC', pre_filter=None,
     hour_start_day=8, hour_end_day=18
-):
+) -> pd.DataFrame:
     visited_places = pd.DataFrame()
     for year in range(year_from, year_to + 1):
         LOGGER.info(f' Starting on {year}')
@@ -93,10 +94,69 @@ def agg_visited_places(
     return visited_places
 
 
+def get_gps_duplicate_counts(year_from, year_to, colls, pre_filter, save_path):
+    if Path(save_path).exists():
+        return pd.read_parquet(save_path)
+
+    LOGGER.info(f"No GPS duplicates counts at {save_path}, computing it...")
+    Path(save_path).parent.mkdir(exist_ok=True, parents=True)
+
+    pre_filter = data_access.gps_filter(pre_filter)
+    # Add post filter with small threshold on duplicate counts to eliminate most GPS
+    # coordinates, as most of them are unique of repeated a few times only.
+    post_filter = qr.Filter().greater_or_equals('nr_tweets', 5)
+    dups_counts = pd.DataFrame()
+
+    for y in range(year_from, year_to + 1):
+        db = f'twitter_{y}'
+        with qr.Connection(db) as con:
+            grpby = con[colls].groupby(
+                'coordinates.coordinates', allowDiskUse=True,
+                pre_filter=pre_filter, post_filter=post_filter
+            )
+            res_df = data_access.mongo_groupby_to_df(grpby, nr_tweets=("id", "count")).reset_index()
+            coords_col = 'coordinates_coordinates'
+            res_df = pd.concat(
+                [
+                    res_df,
+                    pd.DataFrame(res_df[coords_col].tolist(), columns=['lat', 'lon'])
+                ],
+                axis=1,
+            )
+            res_df.index = res_df['lat'].astype(str) + res_df['lon'].astype(str)
+            res_df, dups_counts = res_df.align(dups_counts)
+            dups_counts['nr_tweets'] = dups_counts['nr_tweets'].add(res_df['nr_tweets'], fill_value=0)
+            dups_counts[coords_col] = dups_counts[coords_col].combine_first(res_df[coords_col])
+
+    dups_counts.to_parquet(save_path)
+    return dups_counts
+
+
+def filter_gps_duplicates(
+    year_from, year_to, colls, dups_counts_path, pre_filter=None, th=100
+):
+    if pre_filter is None:
+        pre_filter = qr.Filter()
+
+    if th < 0:
+        # specify -1 to mean no threshold
+        return pre_filter
+
+    dups_counts = get_gps_duplicate_counts(
+        year_from, year_to, colls, pre_filter, dups_counts_path
+    )
+    coords_col = 'coordinates_coordinates'
+    mask = dups_counts['nr_tweets'] >= th
+    gps_above_th = [list(arr) for arr in dups_counts.loc[mask, coords_col].tolist()]
+    LOGGER.info(f"{len(gps_above_th)} GPS coordinates have more than {th} duplicates.")
+    gps_filter = qr.Filter().none_of('coordinates.coordinates', gps_above_th)
+    return gps_filter
+
+
 def points_to_cells_in_year(
     year, colls, resident_ids, latlon_cells_gdf, pre_filter=None, timezone='UTC',
     hour_start_day=8, hour_end_day=18
-):
+) -> pd.DataFrame:
     if pre_filter is None:
         # Here no need for base filter as chunk filters are based on date interval.
         pre_filter = qr.Filter()
@@ -105,13 +165,13 @@ def points_to_cells_in_year(
     end = datetime.datetime(year + 1, 1, 1)
     residents_series = pd.Series(True, index=resident_ids, name='is_resident')
     pre_filter = data_access.gps_filter(pre_filter.copy())
-    chunk_filters = data_access.dt_chunk_filters_mongo(db, colls, pre_filter, start, end, chunksize=20e6)
-    print(len(chunk_filters))
-    cell_counts = pd.DataFrame()
-    count_by = ['user_id', 'cell_id', 'is_daytime']
+    chunk_filters = data_access.dt_chunk_filters_mongo(
+        db, colls, pre_filter, start, end, chunksize=20e6
+    )
+    count_by = ['user_id', latlon_cells_gdf.index.name, 'is_daytime']
+    cell_counts = pd.DataFrame(index=pd_utils.empy_multiidx(count_by))
 
     for i, chunk_filter in enumerate(chunk_filters):
-        # f = data_access.gps_filter(chunk_filter)
         tweets = data_access.tweets_from_mongo(
             db, chunk_filter, colls,
             cols=['user_id', 'created_at', 'coordinates'],
@@ -126,9 +186,9 @@ def points_to_cells_in_year(
         tweets = tweets.sjoin(
             latlon_cells_gdf[['geometry']], how='inner', predicate='intersects'
         )
-        tweets = tweets.rename(columns={'index_right': 'cell_id'})
+        tweets = tweets.rename(columns={'index_right': latlon_cells_gdf.index.name})
         cell_counts = cell_counts.add(
-            tweets.groupby(count_by).size().rename('count'),
+            tweets.groupby(count_by).size().rename('count').to_frame(),
             fill_value=0,
         )
 
@@ -138,9 +198,12 @@ def points_to_cells_in_year(
 def agg_points_to_cells(
     year_from, year_to, colls, resident_ids, cells_gdf, pre_filter=None, timezone='UTC',
     hour_start_day=8, hour_end_day=18
-):
+) -> pd.DataFrame:
+    # frame becaue eg `to_parquet` not implemented for series...
     latlon_cells_gdf = cells_gdf.to_crs('epsg:4326')
-    cell_counts = pd.DataFrame()
+    count_by = ['user_id', latlon_cells_gdf.index.name, 'is_daytime']
+    cell_counts = pd.DataFrame(index=pd_utils.empy_multiidx(count_by))
+
     for year in range(year_from, year_to + 1):
         cell_counts = cell_counts.add(
             points_to_cells_in_year(
@@ -150,8 +213,8 @@ def agg_points_to_cells(
             ),
             fill_value=0,
         )
-    # to_frame() becaue eg `to_parquet` not implemented for series...
-    return cell_counts.astype(int).to_frame()
+
+    return cell_counts.astype(int)
 
 
 def places_to_cells(
@@ -166,6 +229,7 @@ def places_to_cells(
     '''
     if 'area' not in cells_gdf:
         cells_gdf['area'] = cells_gdf.area
+    cell_id_col = cells_gdf.index.name
 
     latlon_cells_gdf = cells_gdf.to_crs('epsg:4326')
     point_places_mask = places_gdf.geom_type == 'Point'
@@ -173,15 +237,15 @@ def places_to_cells(
         places_gdf.loc[point_places_mask]
          .sjoin(latlon_cells_gdf, predicate='intersects')[['index_right']]
          .assign(ratio=1)
-         .rename(columns={'index_right': 'cell_id'})
-         .set_index('cell_id', append=True)
+         .rename(columns={'index_right': cell_id_col})
+         .set_index(cell_id_col, append=True)
     )
 
     xy_poly_places = places_gdf.loc[~point_places_mask].to_crs(xy_proj)
     xy_poly_places['area'] = xy_poly_places.area
-    cells_gdf['cell_id'] = cells_gdf.index
+    cells_gdf[cell_id_col] = cells_gdf.index
     poly_places_to_cells = xy_poly_places[['geometry', 'id', 'area']].overlay(
-        cells_gdf[['geometry', 'cell_id']], how='intersection'
+        cells_gdf[['geometry', cell_id_col]], how='intersection'
     )
     poly_places_to_cells['area_overlap'] = poly_places_to_cells.area
     poly_places_to_cells['ratio_overlap'] = (
@@ -193,7 +257,7 @@ def places_to_cells(
         / poly_places_to_cells.groupby('id')['area_overlap'].transform('sum')
     )
     poly_places_to_cells = (
-        poly_places_to_cells.set_index(['id', 'cell_id'])
+        poly_places_to_cells.set_index(['id', cell_id_col])
          .sort_index()
          .drop(columns='geometry')
     )
@@ -234,18 +298,17 @@ def get_cell_user_activity(
     `subcells_to_cells` Series making the correspondence between the indices of the
     subcells (in its Index) and the ones of the final cells (its values)
     '''
-    new_cells_name = subcells_to_cells.name
+    agg_cells_name = subcells_to_cells.index.names[0]
     user_gps_counts = (
-        subcells_user_counts_from_gps.join(subcells_to_cells.rename_axis('cell_id'))
-         .groupby(['user_id', new_cells_name, 'is_daytime'])
+        subcells_user_counts_from_gps.join(subcells_to_cells)
+         .groupby(['user_id', agg_cells_name, 'is_daytime'])
          .sum()
-         .rename_axis(index={new_cells_name: 'cell_id'})
     )
 
     user_acty = (
         user_places_counts.join(
             places_to_cells.reset_index().set_index('id'), on='place_id', how='inner'
-        ).groupby(['user_id', 'cell_id', 'is_daytime']).sum()
+        ).groupby(['user_id', agg_cells_name, 'is_daytime']).sum()
     )
     user_acty['count'] = user_acty['count'] * user_acty['ratio']
     user_acty = user_acty.drop(columns='ratio').add(user_gps_counts, fill_value=0)
@@ -278,6 +341,6 @@ def assign(user_acty, nighttime_acty_th=0.5, all_acty_th=0.1, count_th=3):
          .sort_values(by='count')
          .groupby('user_id')
          .tail(1)
-         .reset_index().set_index('user_id') # ['cell_id']
+         .reset_index().set_index('user_id')
     )
     return user_residence_cells
