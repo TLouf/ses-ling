@@ -29,12 +29,9 @@ class Region:
     # other options.
     init_dict: dict
     res_attrib_level: str
-    all_cntr_shapes: InitVar[geopd.GeoDataFrame]
-    shapefile_col: InitVar[str] = 'FID'
-    shapefile_val: InitVar[str | None] = None
+    all_cntr_shapes: InitVar[geopd.GeoDataFrame | None] = None
     # not a problem to default with mutable because this initvar is never touched
     extract_shape_kwargs: InitVar[dict] = {'simplify_tol': 100}
-    shape_bbox: InitVar[list[float] | None] = None
     ses_idx: str | None = None
     mongo_coll: str = ''
     year_from: int = 2015
@@ -44,9 +41,7 @@ class Region:
     max_place_area: float = 5e9
     cell_size: InitVar[int | float | str] = 50e3
     # Params
-    nighttime_acty_th: float = 0.5
-    all_acty_th: float = 0.1
-    count_th: int = 3
+    res_attr_kwargs: dict = field(default_factory=dict)
     shape_geodf: geopd.GeoDataFrame | None = None
     cell_levels_corr: pd.DataFrame | None = None
     weighted_cell_levels_corr: pd.DataFrame | None = None
@@ -59,15 +54,18 @@ class Region:
     _user_corpora: pd.DataFrame | None = None
 
     def __post_init__(
-        self, all_cntr_shapes, shapefile_col, shapefile_val, extract_shape_kwargs, shape_bbox, cell_size
+        self, all_cntr_shapes, extract_shape_kwargs, cell_size
     ):
-        self._shape_bbox = shape_bbox
         self._cell_size = cell_size
         if self.shape_geodf is None:
-            shapefile_val = shapefile_val or self.cc
+            if all_cntr_shapes is None:
+                all_cntr_shapes = geopd.read_file(self.paths.countries_shapefile)
+            shapefile_val = self.init_dict.get("shapefile_val", self.cc)
+            shapefile_col = self.init_dict.get("shapefile_col", "FID")
             mask = all_cntr_shapes[shapefile_col].str.startswith(shapefile_val)
             self.shape_geodf = geo_utils.extract_shape(
-                all_cntr_shapes.loc[mask], self.cc, xy_proj=self.xy_proj, **extract_shape_kwargs
+                all_cntr_shapes.loc[mask], self.cc, xy_proj=self.xy_proj,
+                bbox=self.init_dict.get("shape_bbox"), **extract_shape_kwargs
             )
         print(f'shape_geodf loaded for {self.cc}')
 
@@ -113,13 +111,13 @@ class Region:
 
 
     @classmethod
-    def from_dict(cls, cc, lc, init_dict, res_attrib_level, all_cntr_shapes, **kwargs):
+    def from_dict(cls, cc, lc, init_dict, res_attrib_level, **kwargs):
         all_kwargs = {**init_dict, **kwargs}
         matching_kwargs = {
             k: v for k, v in all_kwargs.items()
             if k in inspect.signature(cls).parameters
         }
-        return cls(cc, lc, init_dict, res_attrib_level, all_cntr_shapes, **matching_kwargs)
+        return cls(cc, lc, init_dict, res_attrib_level, **matching_kwargs)
 
 
     def update_from_dict(self, d):
@@ -133,7 +131,7 @@ class Region:
         # custom to_dict to keep only parameters that can be in save path
         list_attr = [
             'lc', 'readable', 'cc', 'year_from', 'year_to', 'cell_size', 'res_attrib_level',
-            'max_place_area', 'xy_proj', 'nighttime_acty_th', 'all_acty_th', 'count_th'
+            'max_place_area', 'xy_proj',
         ]
         return {attr: getattr(self, attr) for attr in list_attr}
 
@@ -141,13 +139,18 @@ class Region:
     @property
     def bbox(self):
         if self._shape_bbox is None:
-            self._shape_bbox = self.shape_geodf.geometry.to_crs('epsg:4326').total_bounds
+            if "shape_bbox" in self.init_dict:
+                self._shape_bbox = self.init_dict["shape_bbox"]
+            else:
+                self._shape_bbox = (
+                    self.shape_geodf.geometry.to_crs('epsg:4326').total_bounds
+                )
         return self._shape_bbox
 
     @property
     def paths(self):
         self._paths = paths_utils.ProjectPaths()
-        self._paths.partial_format(**self.to_dict())
+        self._paths.partial_format(**self.to_dict(), **self.res_attr_kwargs)
         return self._paths
 
     @paths.setter
@@ -398,18 +401,16 @@ class Language:
     # Arguable solution: could also just edit countries_dict in script: pb lose default
     # for subsequent runs... This is more heavy but more robust.
     _cc_init_params: InitVar[dict]
-    all_cntr_shapes: InitVar[geopd.GeoDataFrame]
     countries_dict: InitVar[dict]
+    all_cntr_shapes: InitVar[geopd.GeoDataFrame | None] = None
     regions: list[Region] = field(default_factory=list)
     year_from: int = 2015
     year_to: int = 2021
     month_from: int = 1
     month_to: int = 12
     latlon_proj: str = 'epsg:4326'
+    res_attr_kwargs: dict = field(default_factory=dict)
     # Parameters for word and cell filters:
-    nighttime_acty_th: float = 0.5
-    all_acty_th: float = 0.1
-    count_th: int = 3
     user_nr_words_th: InitVar[int] = 0
     cells_nr_users_th: InitVar[int] = 0
     # Data containers (frames, arrays)
@@ -426,17 +427,22 @@ class Language:
     _width_ratios: np.ndarray | None = None
 
     def __post_init__(
-        self, _cc_init_params, all_cntr_shapes, countries_dict, user_nr_words_th, cells_nr_users_th
+        self, _cc_init_params, countries_dict, all_cntr_shapes, user_nr_words_th, cells_nr_users_th
     ):
         self._user_nr_words_th = user_nr_words_th
         self._cells_nr_users_th = cells_nr_users_th
         if len(self.regions) < len(_cc_init_params):
             missing_ccs = set(_cc_init_params.keys()).difference({reg.cc for reg in self.regions})
+
+            if all_cntr_shapes is None:
+                all_cntr_shapes = geopd.read_file(self.paths.countries_shapefile)
+
             for cc in missing_ccs:
                 self.regions.append(
                     Region.from_dict(
                         cc=cc, lc=self.lc, all_cntr_shapes=all_cntr_shapes,
                         year_from=self.year_from, year_to=self.year_to,
+                        res_attr_kwargs=self.res_attr_kwargs,
                         init_dict=countries_dict[cc],
                         **{**countries_dict[cc], **_cc_init_params[cc]}
                     )
@@ -494,8 +500,8 @@ class Language:
 
 
     @classmethod
-    def from_countries_dict(cls, lc, readable, list_cc_, all_cntr_shapes,
-                            countries_dict, year_from=2015,
+    def from_countries_dict(cls, lc, readable, list_cc_, countries_dict,
+                            all_cntr_shapes=None, year_from=2015,
                             year_to=2021, **kwargs):
         # regions = [
         #     Region.from_dict(cc, lc, countries_dict[cc], year_from=year_from,
@@ -503,7 +509,7 @@ class Language:
         #     for cc in list_cc
         # ]
         return cls(
-            lc, readable, list_cc_, all_cntr_shapes, countries_dict,
+            lc, readable, list_cc_, countries_dict, all_cntr_shapes=all_cntr_shapes,
             year_from=year_from, year_to=year_to, **kwargs
         )
 
@@ -517,7 +523,7 @@ class Language:
         # custom to_dict to keep only parameters that can be in save path
         list_attr = [
             'lc', 'readable', 'str_cc', 'year_from', 'year_to',
-            'nighttime_acty_th', 'all_acty_th', 'count_th',
+            'user_nr_words_th', 'cells_nr_users_th'
         ]
         return {attr: getattr(self, attr) for attr in list_attr}
 
@@ -537,7 +543,7 @@ class Language:
     @property
     def paths(self):
         self._paths = paths_utils.ProjectPaths()
-        self._paths.partial_format(**self.to_dict())
+        self._paths.partial_format(**self.to_dict(), **self.res_attr_kwargs)
         return self._paths
 
     @paths.setter
