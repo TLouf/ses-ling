@@ -873,22 +873,35 @@ class Language:
     @property
     def width_ratios(self):
         if self._width_ratios is None:
-            width_ratios = np.ones(len(self.list_cc))
+            width_ratios = np.ones(len(self.regions))
             for i, reg in enumerate(self.regions):
                 min_lon, min_lat, max_lon, max_lat = reg.bbox
-                # For a given longitude extent, the width is maximum the closer to the
-                # equator, so the closer the latitude is to 0.
-                eq_not_crossed = int(min_lat * max_lat > 0)
-                lat_max_width = min(abs(min_lat), abs(max_lat)) * eq_not_crossed
-                width = geo_utils.haversine(min_lon, lat_max_width, max_lon, lat_max_width)
-                height = geo_utils.haversine(min_lon, min_lat, min_lon, max_lat)
+                width, height = geo_utils.calc_bbox_dims(
+                    min_lon, min_lat, max_lon, max_lat
+                )
                 width_ratios[i] = width / height
             self._width_ratios = width_ratios
         return self._width_ratios
 
+    def get_custom_width_ratios(self, cells_idc):
+        width_ratios = np.ones(len(self.regions))
+        for i, reg in enumerate(self.regions):
+            reg_cells = reg.cells_geodf.join(pd.DataFrame(index=cells_idc), how='inner')
+            if reg_cells.shape[0] > 0.5 * reg.cells_geodf.shape[0]:
+                # we'll plot the shape so use width_ratio saved as property
+                width_ratios[i] = self.width_ratios[i]
+            else:
+                min_x, min_y, max_x, max_y = reg_cells.total_bounds
+                width = max_x - min_x
+                height = max_y - min_y
+                width_ratios[i] = width / height
+        return width_ratios
 
-    def get_maps_pos(self, total_width, total_height=None, ratio_lgd=None):
-        width_ratios = self.width_ratios.copy()
+    def get_maps_pos(
+        self, total_width, total_height=None, ratio_lgd=None, width_ratios=None
+    ):
+        if width_ratios is None:
+            width_ratios = self.width_ratios.copy()
         if ratio_lgd is not None:
             width_ratios = np.append(width_ratios, ratio_lgd)
         return map_viz.position_axes(
@@ -917,11 +930,16 @@ class Language:
         cbar_kwargs=None, save=False, **choro_kwargs
     ):
         z_plot = self.pre_process_z_plot(z_plot)
-
+        
         if normed_bboxes is True:
+            if z_plot.shape[0] < 0.9 * self.cells_geodf.shape[0]:
+                width_ratios = self.get_custom_width_ratios(z_plot.index)
+            else:
+                width_ratios = None
             # calculate optimal position
             normed_bboxes, (total_width, total_height) = self.get_maps_pos(
-                total_width, total_height=total_height, ratio_lgd=1/10
+                total_width, total_height=total_height, ratio_lgd=1/10,
+                width_ratios=width_ratios
             )
 
         if axes is None:
@@ -936,6 +954,7 @@ class Language:
                 axes = axes[:-1]
 
         if save and not choro_kwargs.get('save_path'):
+            # deprecated
             cell_sizes = '-'.join(r.cell_size for r in self.regions)
             choro_kwargs['save_path'] = (
                 self.paths.case_figs
@@ -944,15 +963,14 @@ class Language:
                 )
             )
 
+        # If normed_bboxes set to False, don't position the axes
+        if not normed_bboxes is False:
+            choro_kwargs['normed_bboxes'] = normed_bboxes
+
         fig, axes = map_viz.choropleth(
             z_plot, self.regions, axes=axes, cax=cax,
             cbar_kwargs=cbar_kwargs, **choro_kwargs
         )
-
-        # If normed_bboxes set to False, don't position the axes
-        if not normed_bboxes is False:
-            for ax, bbox in zip(np.append(axes, cax), normed_bboxes):
-                ax.set_position(bbox)
 
         return fig, axes
 

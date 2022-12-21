@@ -326,13 +326,7 @@ def d_matrix_from_cells(cell_plot_df):
     return d_matrix
 
 
-def calc_shape_dims(shape_df, latlon_proj='epsg:4326'):
-    '''
-    Calculate the max width and height in meters of the bounding box of the shapes
-    contained within `shape_df`.
-    '''
-    min_lon, min_lat, max_lon, max_lat = (
-        shape_df.geometry.to_crs(latlon_proj).total_bounds)
+def calc_bbox_dims(min_lon, min_lat, max_lon, max_lat):
     # For a given longitude extent, the width is maximum the closer to the
     # equator, so the closer the latitude is to 0.
     eq_crossed = min_lat * max_lat < 0
@@ -340,6 +334,16 @@ def calc_shape_dims(shape_df, latlon_proj='epsg:4326'):
     width = haversine(min_lon, lat_max_width, max_lon, lat_max_width)
     height = haversine(min_lon, min_lat, min_lon, max_lat)
     return width, height
+
+def calc_shape_dims(shape_df, latlon_proj='epsg:4326'):
+    '''
+    Calculate the max width and height in meters of the bounding box of the shapes
+    contained within `shape_df`.
+    '''
+    min_lon, min_lat, max_lon, max_lat = (
+        shape_df.geometry.to_crs(latlon_proj).total_bounds
+    )
+    return calc_bbox_dims(min_lon, min_lat, max_lon, max_lat)
 
 
 def calc_bbox_area(min_lon, min_lat, max_lon, max_lat, R=6367e3):
