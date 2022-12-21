@@ -742,6 +742,25 @@ class Language:
                 agg_metrics = spatial_agg.get_agg_metrics(
                     r.ses_df, r.weighted_cell_levels_corr
                 )
+                # groupby index and take first to remove duplicate SES
+                self.cells_ses_df = (
+                    pd.concat([self.cells_ses_df, agg_metrics])
+                     .groupby(self.cells_ses_df.index.names)
+                     .first()
+                )
+                # If on right cell size level, optionally load additional stats from
+                # files documented in ses_data_options: quartiles, etc
+                for col in r.ses_df.columns:
+                    add_score_stats = r.ses_data_options[idx].get('score_stats_cols', {}).get(col)
+                    if add_score_stats is not None and agg_metrics.shape[0] == r.ses_df.shape[0]:
+                        score_stats_options = r.ses_data_options[idx].copy()
+                        score_stats_options['score_cols'] = add_score_stats
+                        score_stats = (
+                            ses_data.read_df(r.paths.ext_data, **score_stats_options)
+                             .assign(metric=col)
+                             .set_index('metric', append=True)
+                        )
+                        self.cells_ses_df = self.cells_ses_df.join(score_stats)
                     
         if not found_idx:
             print(f"{ses_idx} was not found anywhere.")
