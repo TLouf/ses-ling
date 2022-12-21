@@ -27,26 +27,28 @@ class Region:
     lc: str
     # Keep the whole init_dict from countries.json in case after init we want to select
     # other options.
+    # TODO: make init_dict a dataclass? since some params are needed
     init_dict: dict
-    res_attrib_level: str
+    res_cell_size: str
     all_cntr_shapes: InitVar[geopd.GeoDataFrame | None] = None
     # not a problem to default with mutable because this initvar is never touched
     extract_shape_kwargs: InitVar[dict] = {'simplify_tol': 100}
     ses_idx: str | None = None
-    mongo_coll: str = ''
     year_from: int = 2015
     year_to: int = 2021
-    readable: str = ''
     xy_proj: str = 'epsg:3857'
     max_place_area: float = 5e9
     cell_size: InitVar[int | float | str] = 50e3
+    cell_kind: str = 'census'
     # Params
+    # TODO: make res_attr_kwargs a dataclass?
     res_attr_kwargs: dict = field(default_factory=dict)
     shape_geodf: geopd.GeoDataFrame | None = None
     cell_levels_corr: pd.DataFrame | None = None
     weighted_cell_levels_corr: pd.DataFrame | None = None
     ses_df: pd.DataFrame | None = None
     lt_rules: pd.DataFrame | None = None
+    _shape_bbox: list | None = None
     _cells_geodf: geopd.GeoDataFrame | None = None
     _paths: paths_utils.ProjectPaths | None = None
     _user_residence_cell: pd.DataFrame | None = None
@@ -57,6 +59,7 @@ class Region:
         self, all_cntr_shapes, extract_shape_kwargs, cell_size
     ):
         self._cell_size = cell_size
+        self.cell_kind = self.cell_shapefiles[cell_size]['kind'] or self.cell_kind
         if self.shape_geodf is None:
             if all_cntr_shapes is None:
                 all_cntr_shapes = geopd.read_file(self.paths.countries_shapefile)
@@ -111,13 +114,13 @@ class Region:
 
 
     @classmethod
-    def from_dict(cls, cc, lc, init_dict, res_attrib_level, **kwargs):
+    def from_dict(cls, cc, lc, init_dict, res_cell_size, **kwargs):
         all_kwargs = {**init_dict, **kwargs}
         matching_kwargs = {
             k: v for k, v in all_kwargs.items()
             if k in inspect.signature(cls).parameters
         }
-        return cls(cc, lc, init_dict, res_attrib_level, **matching_kwargs)
+        return cls(cc, lc, init_dict, res_cell_size, **matching_kwargs)
 
 
     def update_from_dict(self, d):
@@ -130,11 +133,12 @@ class Region:
     def to_dict(self):
         # custom to_dict to keep only parameters that can be in save path
         list_attr = [
-            'lc', 'readable', 'cc', 'year_from', 'year_to', 'cell_size', 'res_attrib_level',
+            'lc', 'readable', 'cc', 'year_from', 'year_to', 'cell_size', 'res_cell_size',
             'max_place_area', 'xy_proj',
         ]
-        return {attr: getattr(self, attr) for attr in list_attr}
-
+        return {
+            **{attr: getattr(self, attr) for attr in list_attr}, **self.res_attr_kwargs
+        }
 
     @property
     def bbox(self):
@@ -150,7 +154,7 @@ class Region:
     @property
     def paths(self):
         self._paths = paths_utils.ProjectPaths()
-        self._paths.partial_format(**self.to_dict(), **self.res_attr_kwargs)
+        self._paths.partial_format(**self.to_dict())
         return self._paths
 
     @paths.setter
@@ -192,6 +196,7 @@ class Region:
             cell_size_spec = self.cell_shapefiles.get(self._cell_size)
             if cell_size_spec is None:
                 if self._cells_geodf is None:
+                # correspondence with `cell_levels_corr`
                     raise ValueError(
                         f"cell_size of {self.cell_size} can neither be obtained by "
                         "direct reading of a shapefile or correspondence with a "
@@ -208,11 +213,12 @@ class Region:
                         .dissolve(by=agg_level)
                 )
             else:
+                self.cell_kind = cell_size_spec["kind"]
                 # Else load according to cell_size_spec using cells_geodf's setter
                 del self.cells_geodf
                 self.cells_geodf = self.cells_geodf
 
-            if _cell_size != self.res_attrib_level and _cell_size in self.cell_shapefiles.keys():
+            if _cell_size != self.res_cell_size and _cell_size in self.cell_shapefiles.keys():
                 del self.user_residence_cell
 
             self.weighted_cell_levels_corr = self.get_weighted_cell_levels_corr()
@@ -326,8 +332,8 @@ class Region:
 
         if self._user_residence_cell.columns[0].lower() != self.cells_geodf.index.name.lower():
             unit_level = (
-                self.cell_shapefiles.get(self.res_attrib_level, {}).get("index_col")
-                or self.res_attrib_level
+                self.cell_shapefiles.get(self.res_cell_size, {}).get("index_col")
+                or self.res_cell_size
             )
             agg_level = (
                 self.cell_shapefiles.get(self.cell_size, {}).get("index_col")
@@ -418,7 +424,7 @@ class Language:
     month_from: int = 1
     month_to: int = 12
     latlon_proj: str = 'epsg:4326'
-    res_attr_kwargs: dict = field(default_factory=dict)
+    res_attr_kwargs: InitVar[dict] = field(default_factory=dict)
     # Parameters for word and cell filters:
     user_nr_words_th: InitVar[int] = 0
     cells_nr_users_th: InitVar[int] = 0
@@ -436,8 +442,9 @@ class Language:
     _width_ratios: np.ndarray | None = None
 
     def __post_init__(
-        self, _cc_init_params, countries_dict, all_cntr_shapes, user_nr_words_th, cells_nr_users_th
+        self, _cc_init_params, countries_dict, all_cntr_shapes, res_attr_kwargs, user_nr_words_th, cells_nr_users_th
     ):
+        self._res_attr_kwargs = res_attr_kwargs
         self._user_nr_words_th = user_nr_words_th
         self._cells_nr_users_th = cells_nr_users_th
         if len(self.regions) < len(_cc_init_params):
@@ -534,7 +541,9 @@ class Language:
             'lc', 'readable', 'str_cc', 'year_from', 'year_to',
             'user_nr_words_th', 'cells_nr_users_th'
         ]
-        return {attr: getattr(self, attr) for attr in list_attr}
+        return {
+            **{attr: getattr(self, attr) for attr in list_attr}, **self.res_attr_kwargs
+        }
 
 
     @property
@@ -567,7 +576,7 @@ class Language:
     @property
     def paths(self):
         self._paths = paths_utils.ProjectPaths()
-        self._paths.partial_format(**self.to_dict(), **self.res_attr_kwargs)
+        self._paths.partial_format(**self.to_dict())
         return self._paths
 
     @paths.setter
@@ -608,6 +617,18 @@ class Language:
 
 
     @property
+    def res_attr_kwargs(self):
+        return self._res_attr_kwargs
+
+    @res_attr_kwargs.setter
+    def res_attr_kwargs(self, d):
+        self._res_attr_kwargs = d
+        for r in self.regions:
+            r.res_attr_kwargs = d
+        del self.user_residence_cell
+
+
+    @property
     def user_residence_cell(self):
         # TODO: when several regions, handle duplicate user_id (should be rare though
         # given residence requirement)
@@ -628,6 +649,8 @@ class Language:
     @user_residence_cell.deleter
     def user_residence_cell(self):
         self.user_residence_cell = None
+        for r in self.regions:
+            del r.user_residence_cell
   
         
     @property
