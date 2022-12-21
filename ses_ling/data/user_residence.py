@@ -9,6 +9,7 @@ import querier as qr
 
 import ses_ling.utils.pandas as pd_utils
 import ses_ling.data.access as data_access
+import ses_ling.utils.spatial_agg as spatial_agg
 
 
 LOGGER = logging.getLogger(__name__)
@@ -92,6 +93,24 @@ def agg_visited_places(
         LOGGER.info(f'Have info on {nr_users} users in {nr_places} places.')
 
     return visited_places
+
+
+def yield_yearly_poi_counts(year_from, year_to, colls, save_path_fmt):
+    for year in range(year_from, year_to):
+        save_path = str(save_path_fmt).format(year=year)
+        if Path(save_path).exists():
+            yield pd.read_parquet(save_path)
+        else:
+            LOGGER.info(f"No POI duplicates counts at {save_path}, computing it...")
+            db = f'twitter_{year}'
+            f = qr.Filter().not_exists('coordinates.coordinates').equals('place.place_type', 'poi')
+            with qr.Connection(db) as con:
+                grpby = con[colls].groupby('place.id', pre_filter=f, allowDiskUse=True)
+                poi_counts = data_access.mongo_groupby_to_df(
+                    grpby, count=qr.NamedAgg('id', 'count')
+                )
+            poi_counts.to_parquet(save_path)
+            yield poi_counts
 
 
 def get_gps_duplicate_counts(year_from, year_to, colls, pre_filter, save_path):
@@ -287,12 +306,11 @@ def places_to_cells(
          .drop(index=places_to_remove, level='id')
     )
 
-    places_to_cells = pd.concat([pt_places_to_cells, poly_places_to_cells]).sort_index()
-    return places_to_cells
+    return pd.concat([pt_places_to_cells, poly_places_to_cells]).sort_index()
 
 
 def get_cell_user_activity(
-    user_places_counts, places_to_cells, subcells_user_counts_from_gps, subcells_to_cells
+    user_places_counts, places_to_cells_corr, subcells_user_counts_from_gps, subcells_to_cells
 ):
     '''
     `subcells_to_cells` Series making the correspondence between the indices of the
@@ -307,11 +325,15 @@ def get_cell_user_activity(
 
     user_acty = (
         user_places_counts.join(
-            places_to_cells.reset_index().set_index('id'), on='place_id', how='inner'
+            places_to_cells_corr.reset_index().set_index('id'), on='place_id', how='inner'
         ).groupby(['user_id', agg_cells_name, 'is_daytime']).sum()
     )
     user_acty['count'] = user_acty['count'] * user_acty['ratio']
     user_acty = user_acty.drop(columns='ratio').add(user_gps_counts, fill_value=0)
+    return compute_time_fracs(user_acty)
+
+
+def compute_time_fracs(user_acty):
     user_acty['prop_user'] = (
         user_acty['count']
         / user_acty.groupby('user_id')['count'].transform('sum')
@@ -344,3 +366,67 @@ def assign(user_acty, nighttime_acty_th=0.5, all_acty_th=0.1, count_th=3):
          .reset_index().set_index('user_id')
     )
     return user_residence_cells
+
+
+def user_acty_from_saved_counts(
+    reg, gps_attr_level, pois_dups_th=-1, gps_dups_th=-1,
+):
+    # Load user counts per cell
+    subcells_user_counts_from_gps = pd.read_parquet(
+        str(reg.paths.user_cells_from_gps).format(
+            gps_attr_cell_size=gps_attr_level, gps_dups_th=gps_dups_th
+        )
+    )
+
+    cell_shp_metadata = reg.cell_shapefiles[reg.res_cell_size]
+    cell_col = cell_shp_metadata['index_col']
+    subcell_shp_metadata = reg.cell_shapefiles[gps_attr_level]
+    subcell_col = subcell_shp_metadata['index_col']
+    subcells_to_cells = reg.cell_levels_corr.copy()
+    subcells_to_cells = spatial_agg.levels_corr(
+        subcells_to_cells, subcell_col, cell_col
+    )
+
+    # Load user counts per place
+    user_places_counts = pd.read_parquet(reg.paths.user_places)
+    poi_counts = pd.DataFrame()
+    year_fmt = str(reg.paths.interim_data / reg.cc / "poi_counts_{year}.parquet")
+    for year_count in yield_yearly_poi_counts(
+        reg.year_from, reg.year_to, reg.mongo_coll, year_fmt
+    ):
+        poi_counts = poi_counts.add(
+            year_count,
+            fill_value=0,
+        )
+    user_places_counts = user_places_counts.join(
+        poi_counts.loc[poi_counts['count'] < pois_dups_th, []],
+        how='inner',
+    )
+
+    # Get places to cells matching
+    places_filter = qr.Filter().equals('country_code', reg.cc)
+    tweets_filter = qr.Filter().not_exists('coordinates.coordinates')
+    places_gdf = data_access.agg_places_from_mongo(
+        reg.year_from, reg.year_to, places_filter, tweets_colls=reg.mongo_coll, tweets_filter=tweets_filter
+    )
+
+    places_to_cells_corr = places_to_cells(
+        places_gdf, reg.cells_geodf, xy_proj=reg.xy_proj, ntop=2,
+        top_cells_cumoverlap_th=0.9, reg_overlap_th=0.6
+    )
+
+    user_acty = get_cell_user_activity(
+        user_places_counts, places_to_cells_corr,
+        subcells_user_counts_from_gps, subcells_to_cells
+    )
+    return user_acty
+
+
+def whole_cell_attr(
+    reg, gps_attr_level, pois_dups_th=-1, gps_dups_th=-1, **assign_kwargs
+):
+    user_acty = user_acty_from_saved_counts(
+        reg, gps_attr_level, pois_dups_th=-1, gps_dups_th=-1,
+    )
+    user_residence_cell = assign(user_acty, **assign_kwargs)
+    return user_residence_cell
