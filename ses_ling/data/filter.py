@@ -165,7 +165,7 @@ def get_persons(user_activity_df, max_hourly_rate=10) -> list:
     user_agg['rate'] = 0
     user_agg.loc[user_agg['dt'] > 0, 'rate'] = user_agg['count'] / user_agg['dt']
     spamming_mask = (
-        (user_agg['rate'] > 10 / (60*60))
+        (user_agg['rate'] > max_hourly_rate / (60*60))
         & (user_agg['dt'] > 16 * 60 * 60)
     )
     spamming_ids = set(user_agg.index[spamming_mask])
