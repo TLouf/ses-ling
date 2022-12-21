@@ -798,7 +798,7 @@ class Language:
         # private here to avoid RecursionError
         if self._cells_geodf is not None:
             self._cells_geodf = self.cells_geodf.drop(columns='is_relevant', errors='ignore')
-            del self.cells_mistakes
+        del self.cells_mistakes
 
     @property
     def relevant_cells(self):
