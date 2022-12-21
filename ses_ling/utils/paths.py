@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from string import Formatter
 from dotenv import load_dotenv
 load_dotenv()
@@ -51,6 +51,10 @@ def format_path(path_fmt, *args, **kwargs):
     return Path(str(path_fmt).format(*args, **kwargs))
 
 
+def get_params_str(*param_names):
+    return '_'.join("{0}={{{0}}}".format(p) for p in param_names)
+
+
 @dataclass
 class ProjectPaths:
     '''
@@ -59,19 +63,36 @@ class ProjectPaths:
     '''
     proj: Path = Path(os.environ['PROJ_DIR'])
     countries_shapefile_name: str = 'CNTR_RG_01M_2016_4326'
-    user_residence_cell_fname_fmt: str = (
-        'user_residence_cell_{year_from}-{year_to}_'
-        'nighttime_acty_th={nighttime_acty_th}_all_acty_th={all_acty_th}_'
-        'count_th={count_th}_cell_size={res_attrib_level}_gps_dups_th='
-        '{gps_dups_th}_pois_dups_th={pois_dups_th}.parquet'
+    user_cells_from_gps_params: InitVar[list] = ['gps_attr_cell_size', 'gps_dups_th']
+    user_cell_acty_params: InitVar[list] = ['res_cell_size', 'gps_dups_th']
+    cell_assign_params: InitVar[list] = ['nighttime_acty_th', 'all_acty_th', 'count_th']
+    generic_data_fname_fmt: str = '{name}_{year_from}-{year_to}_{params_fmt}.parquet'
+    user_cells_from_gps_fname_fmt: str = partial_format(
+        generic_data_fname_fmt,
+        name='user_cells_from_gps',
+        params_fmt=get_params_str(*user_cells_from_gps_params),
     )
-    user_mistakes_fname_fmt: str = (
-        'user_mistakes_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_'
-        'all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+    user_cell_acty_fname_fmt: str = partial_format(
+        generic_data_fname_fmt,
+        name='user_cell_acty',
+        params_fmt=get_params_str(*user_cell_acty_params),
     )
-    user_corpora_fname_fmt: str = (
-        'user_corpora_{year_from}-{year_to}_nighttime_acty_th={nighttime_acty_th}_'
-        'all_acty_th={all_acty_th}_count_th={count_th}.parquet'
+    user_residence_cell_fname_fmt: str = partial_format(
+        generic_data_fname_fmt,
+        name='user_residence_cell',
+        params_fmt=get_params_str(
+            *user_cell_acty_params, 'pois_dups_th', *cell_assign_params
+        ),
+    )
+    user_mistakes_fname_fmt: str = partial_format(
+        generic_data_fname_fmt,
+        name='user_mistakes',
+        params_fmt=get_params_str(*cell_assign_params),
+    )
+    user_corpora_fname_fmt: str = partial_format(
+        generic_data_fname_fmt,
+        name='user_corpora',
+        params_fmt=get_params_str(*cell_assign_params),
     )
     counts_fname_fmt: str = (
         '{kind}_lang={lc}_cc={cc}_years={year_from}-{year_to}_'
@@ -81,7 +102,9 @@ class ProjectPaths:
         '{metric}_cell_sizes={cell_sizes}.pdf'
     )
 
-    def __post_init__(self):
+    def __post_init__(
+        self, user_cells_from_gps_params, user_cell_acty_params, cell_assign_params
+    ):
         self.proj_data = self.proj / 'data'
         self.ext_data = self.proj_data / 'external'
         self.raw_data = self.proj_data / 'raw'
@@ -91,18 +114,17 @@ class ProjectPaths:
         self.countries_shapefile = format_path(self.shp_file_fmt, self.countries_shapefile_name)
         self.countries_dict = self.ext_data / 'countries.json'
         self.figs = self.proj / 'reports' / 'figures'
-        self.case_figs = self.figs / '{lc}' / '{str_cc}' / '{year_from}-{year_to}'
+        self.case_figs = self.figs / '{lc}_{str_cc}' / '{year_from}-{year_to}'
         self.resident_ids = (
             self.interim_data / '{cc}' / 'resident_ids_{year_from}-{year_to}.txt'
-        )
-        self.user_cells_from_gps = (
-            self.interim_data
-            / '{cc}'
-            / 'user_cells_from_gps_{cell_kind}_{year_from}-{year_to}_gps_dups_th={gps_dups_th}.parquet'
         )
         self.user_places = (
             self.interim_data / '{cc}' / 'user_places_{year_from}-{year_to}.parquet'
         )
+        self.user_cells_from_gps = (
+            self.interim_data / '{cc}'/ self.user_cells_from_gps_fname_fmt
+        )
+        self.user_cell_acty = self.interim_data / '{cc}' / self.user_cell_acty_fname_fmt
         self.user_residence_cell = (
             self.interim_data / '{cc}' / self.user_residence_cell_fname_fmt
         )
@@ -123,7 +145,7 @@ class ProjectPaths:
     def partial_format(self, **kwargs):
         for attr in (
             'case_figs', 'resident_ids', 'user_cells_from_gps', 'user_places',
-            'user_residence_cell', 'user_mistakes', 'user_corpora', 
+            'user_cell_acty', 'user_residence_cell', 'user_mistakes', 'user_corpora', 
             'chunk_user_mistakes', 'rule_category', 'language_tool_categories',
             'counts_files', 
         ):
