@@ -128,6 +128,8 @@ def agg_places_from_mongo(
     '''
     places_gdf = geopd.GeoDataFrame()
     for year in range(year_to, year_from-1, -1):
+        # Read in descending chronological order so as to keep the most recent version
+        # of the geometry of every place ID.
         db = f'twitter_{year}'
         places_gdf = places_gdf.combine_first(
             places_from_mongo(
@@ -375,7 +377,7 @@ def dt_chunk_filters_mongo(db, colls: str | list, filter, start, end, chunksize=
 def groupby_res_to_df(res: qr.Result | Iterable, pipeline) -> pd.DataFrame:
     '''
     From the result `res` of a Mongo aggregation defined in the pipeline `pipeline`
-    containing a group stage, returns a DataFrame containing the result, with a
+    ending with a groupby stage, returns a DataFrame containing the result, with a
     potential `MultiIndex` if there is a groupby on more than one field.
     '''
     # Get the last groupby stage, and copy to preserve pipeline.
