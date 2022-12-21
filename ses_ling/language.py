@@ -971,13 +971,16 @@ class Language:
         return fig, axes
 
 
-    def map_interactive(self, z_plot, tooltip_df=None, save=False, save_path=None):
+    def map_interactive(
+        self, z_plot, tooltip_df=None, save=False, save_path=None,
+        **explore_kwargs
+    ):
         z_plot = self.pre_process_z_plot(z_plot)
 
         plot_gdf = self.cells_geodf[['geometry']].join(z_plot, how='inner')
         if tooltip_df is not None:
             plot_gdf = plot_gdf.join(tooltip_df)
-        m = plot_gdf.explore(z_plot.name)
+        m = plot_gdf.explore(z_plot.name, **explore_kwargs)
 
         if save or save_path:
             cell_sizes = '-'.join(r.cell_size for r in self.regions)
