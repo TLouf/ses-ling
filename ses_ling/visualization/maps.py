@@ -179,7 +179,7 @@ def choropleth(
     plot_series, regions, axes=None, cax=None, cmap=None,
     norm=None, vmin=None, vmax=None, vcenter=None,
     cbar_label=None, null_color='gray', save_path=None, show=True,
-    cbar_kwargs=None, clip_to_cells=False, **plot_kwargs
+    cbar_kwargs=None, clip_to_cells=False, normed_bboxes=None, **plot_kwargs
 ):
     '''
     Make a choropleth map from continuous values given in `plot_series` for some given
@@ -213,13 +213,18 @@ def choropleth(
     for ax, reg in zip(axes, regions):
         plot_df = reg.cells_geodf.rename_axis('cell_id').join(plot_series, how='inner')
         area_gdf = reg.shape_geodf.copy()
-        if clip_to_cells:
+        plot_area = plot_df.shape[0] > 0.5 * reg.cells_geodf.shape[0]
+        if clip_to_cells and plot_area:
             area_gdf = area_gdf.clip(box(*plot_df.total_bounds))
-        area_gdf.plot(ax=ax, color=null_color, edgecolor='none', alpha=0.3)
+        if plot_area:
+            area_gdf.plot(ax=ax, color=null_color, edgecolor='none', alpha=0.3)
+
         plot_df.plot(
             column=plot_series.name, ax=ax, norm=norm, cmap=cmap, **plot_kwargs
         )
-        area_gdf.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
+
+        if plot_area:
+            area_gdf.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
         if len(regions) > 1:
             ax.set_title(reg.readable)
         ax.set_axis_off()
@@ -235,10 +240,14 @@ def choropleth(
 
     cbar = fig.colorbar(sm, cax=cax, label=cbar_label, **cbar_kwargs)
 
-    if show:
-        fig.show()
+    if normed_bboxes is not None:
+        for ax, bbox in zip(np.append(axes, cax), normed_bboxes):
+            ax.set_position(bbox)
+
     if save_path:
         save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, bbox_inches='tight')
+    if show:
+        fig.show()
 
     return fig, axes
