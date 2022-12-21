@@ -668,8 +668,9 @@ class Language:
     def user_mask(self):
         if 'is_relevant' not in self.user_df.columns:
             nr_words_mask = self.user_df['nr_words'] >= self.user_nr_words_th
-            self.user_df['is_relevant'] = nr_words_mask
-            print(f'Keeping {nr_words_mask.sum()} users out of {self.user_df.shape[0]}')
+            user_mask = nr_words_mask & self.user_df['cell_id'].notnull()
+            self.user_df['is_relevant'] = user_mask
+            print(f'Keeping {user_mask.sum()} users out of {self.user_df.shape[0]}')
         return self.user_df['is_relevant']
 
     @user_mask.deleter
