@@ -850,6 +850,12 @@ class Language:
         )
 
 
+    def select_ses_metric(self, name: str | list[str], metric='wavg'):
+        if name not in self.cells_ses_df.index.levels[1]:
+            self.add_ses_idx(name)
+        return self.cells_ses_df.loc[(slice(None), name), metric].unstack()[name]
+
+
     def make_subregions_mask(self, subreg_df, set_cells_mask=False):
         # set_cells_mask defaults to False because setting cells_mask deletes
         # cells_mistakes
