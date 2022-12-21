@@ -174,6 +174,14 @@ class Region:
         return self.init_dict['cell_levels_corr_files']
 
     @property
+    def readable(self):
+        return self.init_dict['readable']
+
+    @property
+    def mongo_coll(self):
+        return self.init_dict['mongo_coll']
+
+    @property
     def cell_size(self):
         return self._cell_size
 
