@@ -730,15 +730,21 @@ class Language:
 
     def add_ses_idx(self, ses_idx):
         ses_idx = {ses_idx} if isinstance(ses_idx, str) else set(ses_idx)
+        found_idx = False
         for r in self.regions:
-            idx_intersect = set(r.ses_data_options.keys()).intersection(ses_idx)
+            if ses_idx == {'all'}:
+                idx_intersect = set(r.ses_data_options.keys())
+            else:
+                idx_intersect = set(r.ses_data_options.keys()).intersection(ses_idx)
             for idx in idx_intersect:
+                found_idx = True
                 r.ses_df = r.load_ses_df(idx)
                 agg_metrics = spatial_agg.get_agg_metrics(
                     r.ses_df, r.weighted_cell_levels_corr
                 )
-                self.cells_ses_df = pd.concat([self.cells_ses_df, agg_metrics])
-
+                    
+        if not found_idx:
+            print(f"{ses_idx} was not found anywhere.")
 
     @property
     def cells_users_df(self):
