@@ -836,12 +836,18 @@ class Language:
 
 
     def select_mistakes(self, metric='uavg_freq_per_word', cat_id=None, rule_id=None):
+        series_name = f"{rule_id or cat_id or 'all'} mistakes".lower()
         if cat_id is None:
             cat_id = slice(None)
         if rule_id is None:
             rule_id = slice(None)
         idx_sel = (slice(None), cat_id, rule_id)
-        return self.cells_mistakes.loc[idx_sel, metric].groupby('cell_id').sum()
+        return (
+            self.cells_mistakes.loc[idx_sel, metric]
+             .groupby('cell_id')
+             .sum()
+             .rename(series_name)
+        )
 
 
     def make_subregions_mask(self, subreg_df, set_cells_mask=False):
