@@ -538,9 +538,24 @@ class Language:
         return '-'.join(self.list_cc)
 
     @property
-    def dict_cc(self):
+    def regions_dict(self):
         return {reg.cc: reg for reg in self.regions}
-        
+
+    @property
+    def figs_path(self):
+        d = self.to_dict()
+        for k in ('lc', 'readable', 'str_cc', 'year_from', 'year_to'):
+            d.pop(k)
+        params_str = "_".join(f"{k}={v}" for k, v in d.items())
+        figs_path = (
+            self.paths.figs
+            / f'{self.lc}_{self.str_cc}'
+            / f'{self.year_from}-{self.year_to}'
+            / params_str
+        )
+        figs_path.mkdir(exist_ok=True, parents=True)
+        return figs_path
+
     @property
     def paths(self):
         self._paths = paths_utils.ProjectPaths()
