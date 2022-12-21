@@ -289,16 +289,17 @@ class Region:
         return self.weighted_cell_levels_corr
 
 
-    def make_subregions_mask(self, subregions_dict):
-        cell_shapefile_kind = self.cell_shapefiles[self.cell_size]["kind"]
+    def make_subregions_mask(self, subreg_df):
+        cell_shapefile_kind = self.cell_kind
         corr_df = pd.read_csv(
             self.paths.ext_data / self.cell_levels_corr_files[cell_shapefile_kind]
         )
         corr_df.columns = corr_df.columns.str.lower()
         isin_area = pd.Series(False, name='isin_area', index=self.cells_geodf.index)
-        for r, col in subregions_dict.items():
+        for t in subreg_df.itertuples():
+            r = t.Index
             # TODO: when col not in corr_df, read cell_levels_corr_files[col]
-            idc_region = pd.Index(corr_df.loc[corr_df[col] == r, self.cells_geodf.index.name]).unique()
+            idc_region = pd.Index(corr_df.loc[corr_df[t.agg_col] == r, self.cells_geodf.index.name]).unique()
             isin_area.loc[idc_region] = True
             print(f"{idc_region.size} cells in {r}.")
         return isin_area
@@ -843,15 +844,16 @@ class Language:
         return self.cells_mistakes.loc[idx_sel, metric].groupby('cell_id').sum()
 
 
-    def make_subregions_mask(self, regions_subregions_dict, set_cells_mask=False):
+    def make_subregions_mask(self, subreg_df, set_cells_mask=False):
         # set_cells_mask defaults to False because setting cells_mask deletes
         # cells_mistakes
-        dict_cc = self.dict_cc
+        regions_dict = self.regions_dict
         mask = pd.Series(dtype=bool)
-        for cc, subregions_dict in regions_subregions_dict.items():
-            r = dict_cc[cc]
-            mask = pd.concat([mask, r.make_subregions_mask(subregions_dict)])
+        for cc in subreg_df.index.levels[0]:
+            r = regions_dict[cc]
+            mask = pd.concat([mask, r.make_subregions_mask(subreg_df.loc[cc])])
         mask = self.cells_mask & mask.reindex(self.cells_geodf.index).fillna(False)
+        mask = mask.rename('isin_area')
         if set_cells_mask:
             self.cells_mask = mask
         return mask
