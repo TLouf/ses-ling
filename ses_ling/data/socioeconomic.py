@@ -278,3 +278,83 @@ def user_acty_to_assort(
         interclass_od, normalize_incoming=normalize_incoming
     )
     return assort
+
+
+def get_class_user_acty(user_cell_acty):
+    class_user_acty = (
+        user_cell_acty.groupby(['user_id', 'user_class', 'cell_class'])['prop_cell']
+        .sum()
+        .rename('prop_cell_class')
+    )
+    return class_user_acty
+
+
+def get_user_visited_cells_entropy(class_user_acty, nr_classes):
+    prop = class_user_acty#['prop_cell_class']
+    user_visited_cells_entropy = (
+        -1 / nr_classes
+        * (prop * np.log(prop)).groupby('user_id').sum()
+    )
+    return user_visited_cells_entropy.rename('visited_entropy')
+
+
+def get_cell_residents_entropy(user_res_cell, user_visited_cells_entropy):
+    cell_residents_entropy = (
+        user_res_cell.join(user_visited_cells_entropy, how='inner')
+         .groupby('cell_id')['visited_entropy']
+         .mean()
+         .rename('residents_entropy')
+    )
+    return cell_residents_entropy
+
+
+def get_cell_inc_class(user_cell_acty):
+    cell_inc_class = (
+        user_cell_acty.groupby(['cell_id', 'user_class'])['prop_cell']
+        .sum()
+        .rename('prop_user_class')
+    )
+    cell_inc_class = cell_inc_class / cell_inc_class.groupby('cell_id').transform('sum')
+    return cell_inc_class
+
+def get_cell_visitors_entropy(cell_inc_class, nr_classes):
+    prop = cell_inc_class#['prop_user_class']
+    cell_visitors_entropy = (
+        -1 / nr_classes
+        * (prop * np.log(prop)).groupby('cell_id').sum()
+    )
+    return cell_visitors_entropy.rename('visitors_entropy')
+
+
+def get_cell_entropies_df(
+    user_cell_acty, user_res_cell, cells_ses_metric, nr_classes,
+    cells_mask=None, exclude_res_trips=False
+):
+    cells_subset_user_res = apply_cells_mask(user_res_cell, cells_mask=cells_mask)
+    cells_subset_ses_metric = apply_cells_mask(cells_ses_metric, cells_mask=cells_mask)
+
+    user_class = attr_user_to_class(
+        cells_subset_user_res, cells_subset_ses_metric, nr_classes
+    )
+    cells_class = cell_class_from_residents(cells_subset_user_res, user_class)
+
+    cells_subset_user_acty = apply_cells_mask(user_cell_acty, cells_mask=cells_mask)
+    if exclude_res_trips:
+        cells_subset_user_acty = exclude_res_trips_from_acty(
+            cells_subset_user_acty, cells_subset_user_res
+        )
+    cells_subset_user_acty = recompute_user_cell_acty(cells_subset_user_acty)
+    cells_subset_user_acty = cells_subset_user_acty.join(cells_class).join(user_class)
+    class_user_acty = get_class_user_acty(cells_subset_user_acty)
+
+    user_visited_cells_entropy = get_user_visited_cells_entropy(
+        class_user_acty, nr_classes
+    )
+    cell_residents_entropy = get_cell_residents_entropy(
+        cells_subset_user_res, user_visited_cells_entropy
+    )
+
+    cell_inc_class = get_cell_inc_class(cells_subset_user_acty)
+    cell_visitors_entropy = get_cell_visitors_entropy(cell_inc_class, nr_classes)
+
+    return pd.concat([cell_residents_entropy, cell_visitors_entropy], axis=1)
