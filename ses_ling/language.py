@@ -319,18 +319,12 @@ class Region:
         return isin_area
 
 
-    @property
-    def user_residence_cell(self):
-        if self._user_residence_cell is None:
-            p = self.paths.user_residence_cell
-            if p.exists():
-                self._user_residence_cell = pd.read_parquet(p)
-            else:
-                raise ValueError(
-                    f'Please run the script to generate {p}'
-                )
+    def match_cell_level(self, df, cell_id_name='cell_id', isin_col=False):
+        # by default, cell_id info should be in index
+        if cell_id_name.lower() != self.cells_geodf.index.name.lower():
+            if isin_col:
+                df = df.set_index(cell_id_name, append=True)
 
-        if self._user_residence_cell.columns[0].lower() != self.cells_geodf.index.name.lower():
             unit_level = (
                 self.cell_shapefiles.get(self.res_cell_size, {}).get("index_col")
                 or self.res_cell_size
@@ -343,12 +337,29 @@ class Region:
                 self.cell_levels_corr, unit_level, agg_level
             )
             cell_levels = cell_levels_corr.index.names
-            self._user_residence_cell = (
-                self._user_residence_cell.set_index(cell_levels[1], append=True)
-                 .join(cell_levels_corr)
-                 .droplevel(cell_levels[1])
-                 .reset_index(cell_levels[0])
-            )
+            df = df.join(cell_levels_corr).droplevel(cell_levels[1])
+
+            if isin_col:
+                df = df.reset_index(cell_levels[0])
+
+        return df
+
+
+
+    @property
+    def user_residence_cell(self):
+        if self._user_residence_cell is None:
+            p = self.paths.user_residence_cell
+            if p.exists():
+                self._user_residence_cell = pd.read_parquet(p)
+            else:
+                raise ValueError(
+                    f'Please run the script to generate {p}'
+                )
+
+        self._user_residence_cell = self.match_cell_level(
+            self._user_residence_cell, self._user_residence_cell.columns[0], True
+        )
         return self._user_residence_cell
 
     @user_residence_cell.setter
