@@ -51,6 +51,7 @@ class Region:
     _shape_bbox: list | None = None
     _cells_geodf: geopd.GeoDataFrame | None = None
     _paths: paths_utils.ProjectPaths | None = None
+    _user_cell_acty: pd.DataFrame | None = None
     _user_residence_cell: pd.DataFrame | None = None
     _user_mistakes: pd.DataFrame | None = None
     _user_corpora: pd.DataFrame | None = None
@@ -345,6 +346,23 @@ class Region:
         return df
 
 
+    @property
+    def user_cell_acty(self):
+        if self._user_cell_acty is None:
+            p = self.paths.user_cell_acty
+            if p.exists():
+                self._user_cell_acty = pd.read_parquet(p)
+            else:
+                raise ValueError(
+                    f'Please run the script to generate {p}'
+                )
+
+        # convention set in `user_residence.get_cell_user_activity`
+        self._user_cell_acty = self.match_cell_level(
+            self._user_cell_acty, self._user_cell_acty.index.names[1]
+        )
+        return self._user_cell_acty
+
 
     @property
     def user_residence_cell(self):
@@ -443,6 +461,7 @@ class Language:
     lt_rules: pd.DataFrame = field(init=False)
     lt_categories: pd.DataFrame = field(init=False)
     _cells_geodf: geopd.GeoDataFrame | None = None
+    _user_cell_acty: pd.DataFrame | None = None
     _user_residence_cell: pd.DataFrame | None = None
     _user_corpora: pd.DataFrame | None = None
     _user_df: pd.DataFrame | None = None
@@ -640,6 +659,32 @@ class Language:
 
 
     @property
+    def user_cell_acty(self):
+        if self._user_cell_acty is None:
+            user_cell_acty = pd.DataFrame()
+            for r in self.regions:
+                reg_acty = r.user_cell_acty.copy()
+                reg_acty.index = reg_acty.index.rename({reg_acty.index.names[-2]: 'cell_id'})
+                user_cell_acty = pd.concat([user_cell_acty, reg_acty])
+
+            user_cell_acty = (
+                user_cell_acty.groupby(['user_id', 'cell_id'])[['count', 'prop_cell']]
+                 .sum()
+                 .join(self.user_residence_cell['cell_id'].rename('res_cell_id'), how='inner')
+            )
+            self._user_cell_acty = user_cell_acty
+        return self._user_cell_acty
+
+    @user_cell_acty.setter
+    def user_cell_acty(self, _user_cell_acty):
+        self._user_cell_acty = _user_cell_acty
+
+    @user_cell_acty.deleter
+    def user_cell_acty(self):
+        self.user_cell_acty = None
+
+    
+    @property
     def user_residence_cell(self):
         # TODO: when several regions, handle duplicate user_id (should be rare though
         # given residence requirement)
@@ -656,6 +701,7 @@ class Language:
     def user_residence_cell(self, _user_residence_cell):
         self._user_residence_cell = _user_residence_cell
         del self.user_df
+        del self.user_cell_acty
 
     @user_residence_cell.deleter
     def user_residence_cell(self):
