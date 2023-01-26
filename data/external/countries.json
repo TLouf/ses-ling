@@ -65,7 +65,8 @@
         },
         "cell_levels_corr_files": {
             "census": "Output_Area_to_Lower_Layer_Super_Output_Area_to_Middle_Layer_Super_Output_Area_to_Local_Authority_District__December_2020__Lookup_in_England_and_Wales.csv",
-            "CAUTH20NM": "Local_Authority_District_to_Combined_Authority_(December_2020)_Lookup_in_England.csv"
+            "CAUTH20NM": "Local_Authority_District_to_Combined_Authority_(December_2020)_Lookup_in_England.csv",
+            "metro_area": "uk_metropolitan_areas.csv"
         },
         "ses_data_options": {
             "msoa_pop": {
