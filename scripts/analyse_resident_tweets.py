@@ -133,9 +133,7 @@ def process_chunk(
 
 def main(paths, lc, cc, colls, year_from, year_to, max_tweets_in_chunk=5e6):
     # splt by count, to balance out each user chunk's corpora, up to x tweets in total in one chunk
-    # save_path = str(paths.user_cells_from_gps).format(cell_kind=cc_dict['cell_kind'])
     user_nr_tweets = pd.read_parquet(paths.user_cells_from_gps).groupby('user_id').sum()['count']
-    # save_path = str(paths.user_places)
     user_nr_tweets = (
         user_nr_tweets.add(
             pd.read_parquet(paths.user_places).groupby('user_id').sum()['count'],
@@ -190,9 +188,10 @@ if __name__ == '__main__':
     cc_dict['lc'] = lc
     cc_dict['year_from'] = year_from
     cc_dict['year_to'] = year_to
-    cc_dict['cell_kind'] = 'MSOA_BGC'
+    cc_dict['res_cell_size'] = 'MSOA_BGC'
 
     assign_kwargs = dict(
+        gps_attr_cell_size='LSOA_BGC',
         nighttime_acty_th = 0.5,
         all_acty_th = 0.1,
         count_th = 3,
