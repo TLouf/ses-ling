@@ -310,11 +310,18 @@ class Region:
             self.paths.ext_data / self.cell_levels_corr_files[cell_shapefile_kind]
         )
         corr_df.columns = corr_df.columns.str.lower()
+        cell_level = self.cells_geodf.index.name
+        idc_col = subreg_df.columns[-1]
         isin_area = pd.Series(False, name='isin_area', index=self.cells_geodf.index)
-        for t in subreg_df.itertuples():
-            r = t.Index
-            # TODO: when col not in corr_df, read cell_levels_corr_files[col]
-            idc_region = pd.Index(corr_df.loc[corr_df[t.agg_col] == r, self.cells_geodf.index.name]).unique()
+        for (r, agg_col), idc  in subreg_df.groupby(subreg_df.index.names):
+            if idc.shape[0] > 1:
+                # List of indices is provided in the values of subreg_df
+                mask = corr_df[idc_col.lower()].isin(idc[idc_col].values)
+            else:
+                # Only one item at agg_col level to match
+                # TODO: when col not in corr_df, read cell_levels_corr_files[col]
+                mask = corr_df[agg_col] == r
+            idc_region = pd.Index(corr_df.loc[mask, cell_level]).unique()
             isin_area.loc[idc_region] = True
             print(f"{idc_region.size} cells in {r}.")
         return isin_area
@@ -998,6 +1005,30 @@ class Language:
         if set_cells_mask:
             self.cells_mask = mask
         return mask
+
+
+    def iter_subregs(self, subreg_df, ses_metric=None, cat_id=None):
+        for name, df in subreg_df.groupby('subreg'):
+            subreg_d = {}
+            reg_mask = self.make_subregions_mask(df, set_cells_mask=False)
+            subreg_d['cells_mask'] = reg_mask
+            subreg_d['user_res_cell'] = ses_data.apply_cells_mask(
+                self.user_residence_cell, cells_mask=reg_mask
+            )
+            subreg_d['user_cell_acty'] = ses_data.apply_cells_mask(
+                self.user_cell_acty, cells_mask=reg_mask
+            )
+            if ses_metric is not None:
+                cells_ses_metric = self.select_ses_metric(ses_metric)
+                subreg_d['cells_ses_metric'] = ses_data.apply_cells_mask(
+                    cells_ses_metric, cells_mask=reg_mask
+                )
+            if cat_id is not None:
+                cells_mistake = self.select_mistakes(cat_id=cat_id)
+                subreg_d['cells_mistake'] = ses_data.apply_cells_mask(
+                    cells_mistake, cells_mask=reg_mask
+                )
+            yield name, subreg_d
 
 
     def get_lt_rules(self, lt_cats_dict):

@@ -53,6 +53,24 @@ def read_df(
     return ses_df[list(cols_to_keep.keys())].rename(columns=cols_to_keep)
 
 
+def apply_cells_mask(df, cells_mask=None):
+    if cells_mask is not None:
+        if df.index.names == ['cell_id'] or df.index.names == [cells_mask.index.name]:
+            res_df = df.loc[cells_mask.loc[cells_mask].index]
+        else:
+            was_series = isinstance(df, pd.Series)
+            if was_series:
+                df = df.to_frame()
+            res_df = df.join(
+                cells_mask.loc[cells_mask].rename_axis('cell_id'), on='cell_id', how='inner'
+            )
+            if was_series:
+                res_df = res_df[res_df.columns[0]]
+    else:
+        res_df = df.copy()
+
+    return res_df
+
 def get_cells_subset_user_res(user_res_cell, cells_mask=None):
     if cells_mask is not None:
         cells_subset_user_res = user_res_cell[['cell_id']].join(
