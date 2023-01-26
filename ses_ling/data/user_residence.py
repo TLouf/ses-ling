@@ -334,11 +334,11 @@ def get_cell_user_activity(
 
 
 def compute_time_fracs(user_acty):
-    user_acty['prop_user'] = (
+    user_acty['prop_cell'] = (
         user_acty['count']
         / user_acty.groupby('user_id')['count'].transform('sum')
     )
-    user_acty['prop_user_by_time'] = (
+    user_acty['prop_cell_by_time'] = (
         user_acty['count']
         / user_acty.groupby(['user_id', 'is_daytime'])['count'].transform('sum')
     )
@@ -354,8 +354,8 @@ def assign(user_acty, nighttime_acty_th=0.5, all_acty_th=0.1, count_th=3):
     and were the user tweeted from at least `count_th` times.
     '''
     # not optimal, extract nighttime part first?
-    nighttime_acty_mask = user_acty['prop_user_by_time'] >= nighttime_acty_th
-    all_acty_mask = user_acty['prop_user'] >= all_acty_th
+    nighttime_acty_mask = user_acty['prop_cell_by_time'] >= nighttime_acty_th
+    all_acty_mask = user_acty['prop_cell'] >= all_acty_th
     count_th_mask = user_acty['count'] >= count_th
     user_residence_cells = (
         user_acty.loc[nighttime_acty_mask & all_acty_mask & count_th_mask]

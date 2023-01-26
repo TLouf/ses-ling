@@ -89,29 +89,33 @@ def get_cells_subset_ses_metric(cells_ses_metric, cells_mask=None):
     return cells_subset_ses_metric
 
 
-def get_cells_subset_user_acty(
-    user_cell_acty, subreg_res_cell, cells_mask=None, exclude_res_trips=False
-):
-    subreg_user_cell_acty = (
-        user_cell_acty.drop(columns='res_cell_id', errors='ignore')
-         .join(subreg_res_cell['cell_id'].rename('res_cell_id'), how='inner')
+def exclude_res_trips_from_acty(raw_user_cell_acty, user_res_cell):
+    user_cell_acty = (
+        raw_user_cell_acty.drop(columns='res_cell_id', errors='ignore')
+         .join(user_res_cell['cell_id'].rename('res_cell_id'), how='inner')
     )
-    if exclude_res_trips:
-        res_trips_mask = (
-            subreg_user_cell_acty.index.get_level_values('cell_id')
-            != subreg_user_cell_acty['res_cell_id']
-        )
-        subreg_user_cell_acty = subreg_user_cell_acty.loc[res_trips_mask]
+    res_trips_mask = (
+        user_cell_acty.index.get_level_values('cell_id')
+        != user_cell_acty['res_cell_id']
+    )
+    user_cell_acty = user_cell_acty.loc[res_trips_mask]
 
-    if cells_mask is not None:
-        subreg_user_cell_acty = subreg_user_cell_acty.join(
-            cells_mask.loc[cells_mask].rename_axis('cell_id'), how='inner'
-        )
-    subreg_user_cell_acty['prop_user'] = (
-        subreg_user_cell_acty['prop_user']
-        / subreg_user_cell_acty.groupby('user_id')['prop_user'].transform('sum')
+    og_nr_users = raw_user_cell_acty.index.levels[0].size
+    prop_users_removed = (og_nr_users - user_cell_acty.index.levels[0].size) / og_nr_users
+    og_nr_trips = raw_user_cell_acty['count'].sum()
+    prop_trips_removed = (og_nr_trips - user_cell_acty['count'].sum()) / og_nr_trips
+    print(
+        f"{prop_users_removed:.1%} of users and {prop_trips_removed:.1%} of trips"
+        " removed from exclusion of residence trips"
     )
-    return subreg_user_cell_acty
+    return user_cell_acty
+
+def recompute_user_cell_acty(user_cell_acty):
+    user_cell_acty['prop_cell'] = (
+        user_cell_acty['prop_cell']
+        / user_cell_acty.groupby('user_id')['prop_cell'].transform('sum')
+    )
+    return user_cell_acty
 
 
 def rewire_user_cell_acty(user_cell_acty, user_res_cell, rng, exclude_res_trips=False):
@@ -138,7 +142,7 @@ def rewire_user_cell_acty(user_cell_acty, user_res_cell, rng, exclude_res_trips=
     # TOREMOVE
     if exclude_res_trips:
         assert np.all(random_user_acty.index.get_level_values('cell_id') != random_user_acty['res_cell_id'])
-    
+
     return random_user_acty
 
 
@@ -153,7 +157,20 @@ def attr_user_to_class(user_res_cell, cells_ses_metric, nr_classes):
         f"{nr_users_per_class.mean():.1f} users on average in each of the "
         f"{nr_users_per_class.size} classes."
     )
-    return user_class
+    return user_class.rename('user_class')
+
+
+def cell_class_from_residents(user_res, user_class):
+    # Assumes that all residents of a cell have same class, true here since only SES
+    # data is at cell level. Not optimal but useful when user_class needs to be computed
+    # anyway.
+    cells_class = (
+        user_res.join(user_class)
+         .groupby('cell_id')[user_class.name]
+         .first()
+         .rename('cell_class')
+    )
+    return cells_class
 
 
 def attr_cell_to_class(
@@ -221,41 +238,42 @@ def interclass_od_to_assort(interclass_od, normalize_incoming=True):
 
 def user_acty_to_assort(
     user_cell_acty,
-    user_residence_cell,
+    user_res_cell,
     cells_ses_metric,
     nr_classes,
     cells_mask=None,
     exclude_res_trips=False,
     normalize_incoming=False,
 ):
-    od_groupby_col = 'cell_id' if normalize_incoming else 'res_cell_id'
-    cells_subset_user_res = get_cells_subset_user_res(
-        user_residence_cell, cells_mask=cells_mask
-    )
-    cells_subset_ses_metric = get_cells_subset_ses_metric(cells_ses_metric, cells_mask)
+    cells_subset_user_res = apply_cells_mask(user_res_cell, cells_mask=cells_mask)
+    cells_subset_ses_metric = apply_cells_mask(cells_ses_metric, cells_mask=cells_mask)
     user_class = attr_user_to_class(
         cells_subset_user_res, cells_subset_ses_metric, nr_classes
     )
-    cells_class = (
-        cells_subset_user_res.join(user_class)
-         .groupby('cell_id')[cells_ses_metric.name]
-         .first()
-    )
-    cells_subset_user_acty = get_cells_subset_user_acty(
-        user_cell_acty, cells_subset_user_res,
-        cells_mask=cells_mask, exclude_res_trips=exclude_res_trips
-    )
+    cells_class = cell_class_from_residents(cells_subset_user_res, user_class)
+
+    cells_subset_user_acty = apply_cells_mask(user_cell_acty, cells_mask=cells_mask)
+    if exclude_res_trips:
+        cells_subset_user_acty = exclude_res_trips_from_acty(
+            cells_subset_user_acty, cells_subset_user_res
+        )
+    cells_subset_user_acty = recompute_user_cell_acty(cells_subset_user_acty)
 
     od_df = (
-        cells_subset_user_acty.groupby(['res_cell_id', 'cell_id'])[['prop_user']].sum()
+        cells_subset_user_acty.groupby(['res_cell_id', 'cell_id'])[['prop_cell']].sum()
     )
+    od_groupby_col = 'cell_id' if normalize_incoming else 'res_cell_id'
     od_df = od_df / od_df.groupby(od_groupby_col).transform('sum')
 
     interclass_od = inter_cell_to_inter_class_od(
         od_df,
         cells_class,
-        weight_col='prop_user',
+        weight_col='prop_cell',
     )
+    # Here important normalization: if groupby 'cell_id' (ie normalize_incoming), you
+    # get proba that a visitor to a dest cell comes from an origin one, else if groupby
+    # 'res_cell_id', you get proba that a guy residing in origin cell goes to dest one.
+    # TODO: think which makes more sense, Fika does normalize_incoming = False
     assort = interclass_od_to_assort(
         interclass_od, normalize_incoming=normalize_incoming
     )
