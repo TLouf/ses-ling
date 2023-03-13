@@ -584,29 +584,44 @@ class Language:
         mask = mask.rename('isin_area')
         if set_cells_mask:
             self.cells_mask = mask
+        print(
+            f'{mask.sum()} cells left after masking cells where there are fewer than ',
+            f'{self.cells_nr_users_th} residents',
+        )
         return mask
 
 
-    def iter_subregs(self, subreg_df, ses_metric=None, cat_id=None):
+    def iter_subregs(self, subreg_df, ses_metric=None, cat_id=None, include_pop=False):
         for name, df in subreg_df.groupby('subreg'):
+            # careful: all these DFs are not necessarily based on same set of users!
+            print(f'** {name} **')
             subreg_d = {}
             reg_mask = self.make_subregions_mask(df, set_cells_mask=False)
             subreg_d['cells_mask'] = reg_mask
-            subreg_d['user_res_cell'] = ses_data.apply_cells_mask(
-                self.user_residence_cell, cells_mask=reg_mask
+            masks_dict = {'cell_id': reg_mask}
+            subreg_d['user_res_cell'] = ses_data.apply_masks(
+                self.user_residence_cell, masks_dict
             )
-            subreg_d['user_cell_acty'] = ses_data.apply_cells_mask(
-                self.user_cell_acty, cells_mask=reg_mask
+            # subreg_d['user_cell_acty'] = ses_data.apply_masks(
+            #     self.user_cell_acty, masks_dict
+            # )
+            subreg_d['user_cell_acty'] = ses_data.preprocess_cell_acty(
+                self.user_cell_acty, subreg_d['user_res_cell'], masks_dict
             )
+            if include_pop:
+                cells_pop = self.select_ses_metric('total_pop', 'weight')
+                subreg_d['cells_pop'] = ses_data.apply_masks(
+                    cells_pop, masks_dict
+                )
             if ses_metric is not None:
                 cells_ses_metric = self.select_ses_metric(ses_metric)
-                subreg_d['cells_ses_metric'] = ses_data.apply_cells_mask(
-                    cells_ses_metric, cells_mask=reg_mask
+                subreg_d['cells_ses_metric'] = ses_data.apply_masks(
+                    cells_ses_metric, masks_dict
                 )
             if cat_id is not None:
                 cells_mistake = self.select_mistakes(cat_id=cat_id)
-                subreg_d['cells_mistake'] = ses_data.apply_cells_mask(
-                    cells_mistake, cells_mask=reg_mask
+                subreg_d['cells_mistake'] = ses_data.apply_masks(
+                    cells_mistake, masks_dict
                 )
             yield name, subreg_d
 
