@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 
-import numpy as np
 import geopandas as geopd
+import numpy as np
 import pandas as pd
 
 
@@ -53,47 +53,37 @@ def read_df(
     return ses_df[list(cols_to_keep.keys())].rename(columns=cols_to_keep)
 
 
-def apply_cells_mask(df, cells_mask=None):
-    if cells_mask is not None:
-        if df.index.names == ['cell_id'] or df.index.names == [cells_mask.index.name]:
-            res_df = df.loc[cells_mask.loc[cells_mask].index]
+def apply_masks(df, masks_dict=None):
+    if masks_dict is None:
+        masks_dict = {}
+    res_df = df.copy()
+    was_series = isinstance(df, pd.Series)
+    iterator = [
+        (join_on, mask) for join_on, mask in masks_dict.items() if mask is not None
+    ]
+    for join_on, mask in iterator:
+        # or just join anyway?? avoid index size issues
+        if df.index.names == [join_on] or df.index.names == [mask.index.name]:
+            res_df = res_df.loc[mask.loc[mask].index]
         else:
-            was_series = isinstance(df, pd.Series)
             if was_series:
-                df = df.to_frame()
-            res_df = df.join(
-                cells_mask.loc[cells_mask].rename_axis('cell_id'), on='cell_id', how='inner'
-            )
+                res_df = res_df.to_frame()
+            # try: ... except ValueError (no possible join key): pass??
+            res_df = res_df.join(
+                mask.loc[mask].rename_axis(join_on), on=join_on, how='inner'
+            ).drop(columns=mask.name)
             if was_series:
                 res_df = res_df[res_df.columns[0]]
-    else:
-        res_df = df.copy()
 
     return res_df
 
-def get_cells_subset_user_res(user_res_cell, cells_mask=None):
-    if cells_mask is not None:
-        cells_subset_user_res = user_res_cell[['cell_id']].join(
-            cells_mask.loc[cells_mask], on='cell_id', how='inner'
-        )
-    else:
-        cells_subset_user_res = user_res_cell.copy()
-    return cells_subset_user_res
-
-
-def get_cells_subset_ses_metric(cells_ses_metric, cells_mask=None):
-    if cells_mask is not None:
-        cells_subset_ses_metric = cells_ses_metric.loc[cells_mask.loc[cells_mask].index]
-    else:
-        cells_subset_ses_metric = cells_ses_metric.copy()
-    return cells_subset_ses_metric
-
 
 def exclude_res_trips_from_acty(raw_user_cell_acty, user_res_cell):
-    user_cell_acty = (
-        raw_user_cell_acty.drop(columns='res_cell_id', errors='ignore')
-         .join(user_res_cell['cell_id'].rename('res_cell_id'), how='inner')
-    )
+    user_cell_acty = raw_user_cell_acty.copy()
+    if 'res_cell_id' not in raw_user_cell_acty.columns:
+        user_cell_acty = (
+            user_cell_acty.join(user_res_cell['cell_id'].rename('res_cell_id'), how='inner')
+        )
     res_trips_mask = (
         user_cell_acty.index.get_level_values('cell_id')
         != user_cell_acty['res_cell_id']
@@ -101,7 +91,9 @@ def exclude_res_trips_from_acty(raw_user_cell_acty, user_res_cell):
     user_cell_acty = user_cell_acty.loc[res_trips_mask]
 
     og_nr_users = raw_user_cell_acty.index.levels[0].size
-    prop_users_removed = (og_nr_users - user_cell_acty.index.levels[0].size) / og_nr_users
+    prop_users_removed = (
+        og_nr_users - user_cell_acty.index.get_level_values(0).unique().size
+    ) / og_nr_users
     og_nr_trips = raw_user_cell_acty['count'].sum()
     prop_trips_removed = (og_nr_trips - user_cell_acty['count'].sum()) / og_nr_trips
     print(
@@ -117,6 +109,20 @@ def recompute_user_cell_acty(user_cell_acty):
     )
     return user_cell_acty
 
+def preprocess_cell_acty(user_cell_acty, user_res_cell, masks_dict, exclude_res_trips=False):
+    # only keep trips of residents
+    subset_user_acty = (
+        user_cell_acty.drop(columns='res_cell_id', errors='ignore')
+         .join(user_res_cell['cell_id'].rename('res_cell_id'), how='inner')
+    )
+    # only keep destination cells within potential subregion defined in masks_dict
+    subset_user_acty = apply_masks(subset_user_acty, masks_dict)
+    if exclude_res_trips:
+        subset_user_acty = exclude_res_trips_from_acty(
+            subset_user_acty, user_res_cell
+        )
+    subset_user_acty = recompute_user_cell_acty(subset_user_acty)
+    return subset_user_acty
 
 def rewire_user_cell_acty(user_cell_acty, user_res_cell, rng, exclude_res_trips=False):
     user_cell_acty.index = user_cell_acty.index.remove_unused_levels()
@@ -147,6 +153,9 @@ def rewire_user_cell_acty(user_cell_acty, user_res_cell, rng, exclude_res_trips=
 
 
 def attr_user_to_class(user_res_cell, cells_ses_metric, nr_classes):
+    # classes defined based on users that passed all previous filters TODO: is this
+    # correct? or should rather take real world pop of cells, attribute them a class,
+    # and then to corresponding users?
     user_rank = (
         user_res_cell.join(cells_ses_metric, on='cell_id')[cells_ses_metric.name]
          .rank(axis=0, method='average')
@@ -164,6 +173,7 @@ def cell_class_from_residents(user_res, user_class):
     # Assumes that all residents of a cell have same class, true here since only SES
     # data is at cell level. Not optimal but useful when user_class needs to be computed
     # anyway.
+    # TODO: is this correct? or should rather take real world pop?
     cells_class = (
         user_res.join(user_class)
          .groupby('cell_id')[user_class.name]
@@ -195,7 +205,7 @@ def attr_cell_to_class(
             / (cell_ranking['cumcount'].iloc[-1] / nr_classes)
         )
 
-    cells_class = cells_class.astype(int).rename('ses_class')
+    cells_class = cells_class.astype(int).rename('cell_class').rename_axis('cell_id')
     nr_cells_per_class = cells_class.value_counts()
     print(
         f"{nr_cells_per_class.mean():.1f} cells on average in each of the "
@@ -241,24 +251,30 @@ def user_acty_to_assort(
     user_res_cell,
     cells_ses_metric,
     nr_classes,
+    cells_pop=None,
     cells_mask=None,
+    users_mask=None,
     exclude_res_trips=False,
     normalize_incoming=False,
 ):
-    cells_subset_user_res = apply_cells_mask(user_res_cell, cells_mask=cells_mask)
-    cells_subset_ses_metric = apply_cells_mask(cells_ses_metric, cells_mask=cells_mask)
-    user_class = attr_user_to_class(
-        cells_subset_user_res, cells_subset_ses_metric, nr_classes
-    )
-    cells_class = cell_class_from_residents(cells_subset_user_res, user_class)
-
-    cells_subset_user_acty = apply_cells_mask(user_cell_acty, cells_mask=cells_mask)
-    if exclude_res_trips:
-        cells_subset_user_acty = exclude_res_trips_from_acty(
-            cells_subset_user_acty, cells_subset_user_res
+    masks_dict = {'cell_id': cells_mask}
+    cells_subset_ses_metric = apply_masks(cells_ses_metric, masks_dict)
+    masks_dict['user_id'] = users_mask
+    cells_subset_user_res = apply_masks(user_res_cell, masks_dict)
+    if cells_pop is None:
+        user_class = attr_user_to_class(
+            cells_subset_user_res, cells_subset_ses_metric, nr_classes
         )
-    cells_subset_user_acty = recompute_user_cell_acty(cells_subset_user_acty)
+        cells_class = cell_class_from_residents(cells_subset_user_res, user_class)
+    else:
+        cells_class = attr_cell_to_class(
+            cells_subset_ses_metric, nr_classes, cells_pop
+        )
+        user_class = cells_subset_user_res.join(cells_class, on='cell_id')[cells_class.name]
 
+    cells_subset_user_acty = preprocess_cell_acty(
+        user_cell_acty, cells_subset_user_res, masks_dict, exclude_res_trips
+    )
     od_df = (
         cells_subset_user_acty.groupby(['res_cell_id', 'cell_id'])[['prop_cell']].sum()
     )
@@ -327,23 +343,30 @@ def get_cell_visitors_entropy(cell_inc_class, nr_classes):
 
 
 def get_cell_entropies_df(
-    user_cell_acty, user_res_cell, cells_ses_metric, nr_classes,
-    cells_mask=None, exclude_res_trips=False
+    user_cell_acty, user_res_cell, cells_ses_metric, nr_classes, cells_pop=None,
+    cells_mask=None, users_mask=None, exclude_res_trips=False
 ):
-    cells_subset_user_res = apply_cells_mask(user_res_cell, cells_mask=cells_mask)
-    cells_subset_ses_metric = apply_cells_mask(cells_ses_metric, cells_mask=cells_mask)
-
-    user_class = attr_user_to_class(
-        cells_subset_user_res, cells_subset_ses_metric, nr_classes
-    )
-    cells_class = cell_class_from_residents(cells_subset_user_res, user_class)
-
-    cells_subset_user_acty = apply_cells_mask(user_cell_acty, cells_mask=cells_mask)
-    if exclude_res_trips:
-        cells_subset_user_acty = exclude_res_trips_from_acty(
-            cells_subset_user_acty, cells_subset_user_res
+    masks_dict = {'cell_id': cells_mask}
+    cells_subset_ses_metric = apply_masks(cells_ses_metric, masks_dict)
+    masks_dict['user_id'] = users_mask
+    cells_subset_user_res = apply_masks(user_res_cell, masks_dict)
+    if cells_pop is None:
+        user_class = attr_user_to_class(
+            cells_subset_user_res, cells_subset_ses_metric, nr_classes
         )
-    cells_subset_user_acty = recompute_user_cell_acty(cells_subset_user_acty)
+        cells_class = cell_class_from_residents(cells_subset_user_res, user_class)
+    else:
+        cells_class = attr_cell_to_class(
+            cells_subset_ses_metric, nr_classes, cells_pop
+        )
+        user_class = (
+            cells_subset_user_res.join(cells_class, on='cell_id')[cells_class.name]
+             .rename('user_class')
+        )
+
+    cells_subset_user_acty = preprocess_cell_acty(
+        user_cell_acty, cells_subset_user_res, masks_dict, exclude_res_trips
+    )
     cells_subset_user_acty = cells_subset_user_acty.join(cells_class).join(user_class)
     class_user_acty = get_class_user_acty(cells_subset_user_acty)
 
