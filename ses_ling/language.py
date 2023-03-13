@@ -325,12 +325,20 @@ class Language:
 
     @property
     def user_mask(self):
+        # means relevant in the sense that there was sufficient text to detect mistakes
+        # so should not be used to compute assortativity matrices eg
         if 'is_relevant' not in self.user_df.columns:
             nr_words_mask = self.user_df['nr_words'] >= self.user_nr_words_th
             user_mask = nr_words_mask & self.user_df['cell_id'].notnull()
             self.user_df['is_relevant'] = user_mask
             print(f'Keeping {user_mask.sum()} users out of {self.user_df.shape[0]}')
         return self.user_df['is_relevant']
+
+    @user_mask.setter
+    def user_mask(self, _user_mask):
+        self.user_df['is_relevant'] = _user_mask
+        # to force setters' deletions:
+        self.user_df['is_relevant'] = self.user_df['is_relevant'] 
 
     @user_mask.deleter
     def user_mask(self):
