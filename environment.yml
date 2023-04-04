@@ -28,3 +28,4 @@ dependencies:
     - pycld2
     - language_tool_python
     - git+https://github.com/TLouf/querier.git
+    - memoization
