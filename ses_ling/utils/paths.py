@@ -1,10 +1,15 @@
-import os
 import re
+from dataclasses import InitVar, dataclass
 from pathlib import Path
-from dataclasses import dataclass, field, InitVar
 from string import Formatter
+
 from dotenv import load_dotenv
+
+import ses_ling
+
 load_dotenv()
+
+
 
 
 def yield_kw_from_fmt_str(fmt_str):
@@ -61,7 +66,7 @@ class ProjectPaths:
     Dataclass containing all the paths used throughout the project. Defining
     this class allows us to define these only once, ensuring consistency.
     '''
-    proj: Path = Path(os.environ['PROJ_DIR'])
+    proj: Path = Path(ses_ling.__file__).parent.parent
     countries_shapefile_name: str = 'CNTR_RG_01M_2016_4326'
     user_cells_from_gps_params: InitVar[list] = ['gps_attr_cell_size', 'gps_dups_th']
     user_cell_acty_params: InitVar[list] = ['res_cell_size', 'gps_dups_th']
