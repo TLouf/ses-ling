@@ -7,8 +7,17 @@ from tqdm import tqdm
 import ses_ling.visualization.sim as sim_viz
 
 
-def det_cell(thresholds_cell_moves, nr_agents, rng):
-    return (rng.random(nr_agents)[:, np.newaxis] > thresholds_cell_moves).argmin(axis=1)
+def det_cell(thresholds_cell_moves, cell_cumul_pop, rng):
+    draw = rng.random(cell_cumul_pop[-1])
+    list_cell_arrays = []
+    for i_cell in range(cell_cumul_pop.shape[0] - 1):
+        list_cell_arrays.append(
+            np.searchsorted(
+                thresholds_cell_moves[i_cell, :],
+                draw[cell_cumul_pop[i_cell]: cell_cumul_pop[i_cell+1]],
+            )
+        )
+    return np.concatenate(list_cell_arrays)
 
 
 def det_variant_interact(agent_df, rng):
@@ -27,10 +36,10 @@ def det_variant_interact(agent_df, rng):
 
 def get_switch_mask(df_may_switch, l_arr, q_arr, rng):
     # og variant = 0 implies s, else 1-s.
-    s_switch = l_arr[df_may_switch["variant"]]
+    s_switch = l_arr[df_may_switch["variant"].astype(int)]
     # ses = 0 implies q1, og variant 0 implies (1 - q1), og 1 implies q1
     # ses = 1 implies q2, og variant 0 implies q2, og 1 implies (1 - q2)
-    q_ses = q_arr[df_may_switch["ses"]]
+    q_ses = q_arr[df_may_switch["ses"].astype(int)]
     q_switch = q_ses - (df_may_switch["variant"] == 0).astype(int) * (2 * q_ses - 1)
     switch_th = q_switch * s_switch
     switch_mask = rng.random(df_may_switch.shape[0]) < switch_th
@@ -83,11 +92,21 @@ class Simulation:
             self.agent_df = agents.copy()
         else:
             raise ValueError("agents must either be a dict or a DataFrame")
+        if not self.agent_df['res_cell'].is_monotonic_increasing:
+            raise ValueError(
+                "agents must be sorted in contiguous groups of residence cells with" 
+                " monotonically increasing IDs."
+            )
+
         self.nr_classes = self.agent_df["ses"].nunique()
         self.mob_matrix = mob_matrix
-        self.thresholds_cell_moves = mob_matrix.cumsum(axis=1)[
-            self.agent_df["res_cell"].values
-        ]
+        # It's so we can use the following as indexer in `agent_df` that we require
+        # "res_cell" to be monotonically increasing.
+        self.cell_cumul_pop = np.concatenate([
+            [0],
+            self.agent_df['res_cell'].value_counts().sort_index().cumsum().values,
+        ])
+        self.thresholds_cell_moves = self.mob_matrix.cumsum(axis=1)
         self.l_arr = l_arr
         self.q_arr = q_arr
         if isinstance(rng, int):
@@ -129,7 +148,7 @@ class Simulation:
         return det_variant_interact(self.agent_df, self.rng)
 
     def det_cell(self):
-        return det_cell(self.thresholds_cell_moves, self.nr_agents, self.rng)
+        return det_cell(self.thresholds_cell_moves, self.cell_cumul_pop, self.rng)
 
     def get_switch_mask(self, df_may_switch):
         return get_switch_mask(df_may_switch, self.l_arr, self.q_arr, self.rng)
@@ -178,7 +197,7 @@ class Simulation:
         self.evol_variant0 = get_evolution_from_cumul(self.evol_variant0, tracking_list)
         # iterations_summary = pd.concat([iterations_summary] + list_iter_summary, axis=1).fillna(0).astype(int).rename_axis('time', axis=1)
 
-    def plot(self, **kwargs):
+    def plot_evol(self, **kwargs):
         nr_agents_per_class = self.agent_df.groupby('ses').size().to_dict()
         ax = sim_viz.variant_evol(self.evol_variant0, nr_agents_per_class, **kwargs)
         return ax
