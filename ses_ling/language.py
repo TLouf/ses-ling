@@ -591,7 +591,16 @@ class Language:
         return mask
 
 
-    def iter_subregs(self, subreg_df, ses_metric=None, cat_id=None, include_pop=False):
+    def iter_subregs(
+        self, raw_subreg_df, selected_subregs=None, ses_metric=None, cat_id=None,
+        include_pop=False
+    ):
+        if selected_subregs is None:
+            subreg_df = raw_subreg_df.copy()
+        else:
+            mask = raw_subreg_df.index.isin(selected_subregs, level='subreg')
+            subreg_df = raw_subreg_df.loc[mask, :].copy()
+
         for name, df in subreg_df.groupby('subreg'):
             # careful: all these DFs are not necessarily based on same set of users!
             print(f'** {name} **')
