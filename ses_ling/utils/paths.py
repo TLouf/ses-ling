@@ -145,7 +145,11 @@ class ProjectPaths:
             / self.counts_fname_fmt
         )
         self.language_tool_categories = self.ext_data / 'language_tool_categories_{lc}.json'
-
+        self.sim_state_fmt = (
+            self.proj_data
+            / 'simulations'
+            / '{region}_{kind}_nr_classes={nr_classes}_lv={lv}_q1={q1}_q2={q2}_step={step}.parquet'
+        )
 
     def partial_format(self, **kwargs):
         for attr in (
