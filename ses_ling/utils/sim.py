@@ -174,30 +174,13 @@ class Simulation:
         lv: float = 0.5,
         q1: float = 0.5,
         q2: float = 0.5,
+        cells_nr_users_th: int = 15,
         rng: int | np.random.Generator = 1,
     ):
-        """_summary_
 
-        Parameters
-        ----------
-        agents : dict | pd.DataFrame
-            Must have "ses", "res_cell" and "variant" columns / keys
-        mob_matrix : pd.DataFrame
-            _description_
-        l_arr : np.ndarray
-            _description_
-        q_arr : np.ndarray
-            _description_
-        rng : int | np.random.Generator, optional
-            _description_, by default 1
-
-        Raises
-        ------
-        ValueError
-            _description_
-        ValueError
-            _description_
-        """
+        self.region = region
+        self.cells_nr_users_th = cells_nr_users_th
+        # agent_df must have "ses", "res_cell" and "variant" columns / keys
         self.agent_df = agent_df
         if not self.agent_df['res_cell'].is_monotonic_increasing:
             raise ValueError(
@@ -230,7 +213,6 @@ class Simulation:
         self.q2 = q2
         # This array should be modified if more than 2 classes are introduced!
         self.q_arr = np.array([q1, 1 - q2])
-        self.region = region
 
         self.evol_variant0 = (
             self.agent_df.groupby(["variant", "ses"])
