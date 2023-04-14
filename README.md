@@ -2,7 +2,6 @@ ses-ling
 ==============================
 [![osf](https://img.shields.io/badge/doi-10.17605%2Fosf.io%2Fc86ge-blue.svg?style=flat-square)](https://doi.org/10.17605/osf.io/c86ge)
 
-10.17605/OSF.IO/C86GE
 Analyse geotagged tweets with LanguageTool to explore the relation between socioeconomic
 status and the use of standard language.
 
