@@ -68,37 +68,53 @@ class ProjectPaths:
     '''
     proj: Path = Path(ses_ling.__file__).parent.parent
     countries_shapefile_name: str = 'CNTR_RG_01M_2016_4326'
+
     user_cells_from_gps_params: InitVar[list] = ['gps_attr_cell_size', 'gps_dups_th']
     user_cell_acty_params: InitVar[list] = ['res_cell_size', 'gps_dups_th']
     cell_assign_params: InitVar[list] = ['nighttime_acty_th', 'all_acty_th', 'count_th']
-    generic_data_fname_fmt: str = '{name}_{year_from}-{year_to}_{params_fmt}.parquet'
+    generic_year_range_data_fname_fmt: str = '{name}_{year_from}-{year_to}_{params_fmt}.parquet'
     user_cells_from_gps_fname_fmt: str = partial_format(
-        generic_data_fname_fmt,
+        generic_year_range_data_fname_fmt,
         name='user_cells_from_gps',
         params_fmt=get_params_str(*user_cells_from_gps_params),
     )
     user_cell_acty_fname_fmt: str = partial_format(
-        generic_data_fname_fmt,
+        generic_year_range_data_fname_fmt,
         name='user_cell_acty',
         params_fmt=get_params_str(*user_cell_acty_params),
     )
     user_residence_cell_fname_fmt: str = partial_format(
-        generic_data_fname_fmt,
+        generic_year_range_data_fname_fmt,
         name='user_residence_cell',
         params_fmt=get_params_str(
             *user_cell_acty_params, 'pois_dups_th', *cell_assign_params
         ),
     )
     user_mistakes_fname_fmt: str = partial_format(
-        generic_data_fname_fmt,
+        generic_year_range_data_fname_fmt,
         name='user_mistakes',
         params_fmt=get_params_str(*cell_assign_params),
     )
     user_corpora_fname_fmt: str = partial_format(
-        generic_data_fname_fmt,
+        generic_year_range_data_fname_fmt,
         name='user_corpora',
         params_fmt=get_params_str(*cell_assign_params),
     )
+
+    sim_data_fname_fmt: str = '{name}_{params_fmt}.parquet'
+    sim_init_file_fmt: str = partial_format(
+        sim_data_fname_fmt,
+        name='{region}_{name}',
+        params_fmt=get_params_str('cells_nr_users_th', 'nr_classes'),
+    )
+    sim_state_file_fmt: str = partial_format(
+        sim_data_fname_fmt,
+        name='{region}_{name}',
+        params_fmt=get_params_str(
+            'cells_nr_users_th', 'nr_classes', 'lv', 'q1', 'q2', 'step'
+        ),
+    )
+
     counts_fname_fmt: str = (
         '{kind}_lang={lc}_cc={cc}_years={year_from}-{year_to}_'
         'cell_size={cell_size}.parquet'
@@ -145,11 +161,8 @@ class ProjectPaths:
             / self.counts_fname_fmt
         )
         self.language_tool_categories = self.ext_data / 'language_tool_categories_{lc}.json'
-        self.sim_state_fmt = (
-            self.proj_data
-            / 'simulations'
-            / '{region}_{kind}_nr_classes={nr_classes}_lv={lv}_q1={q1}_q2={q2}_step={step}.parquet'
-        )
+        self.sim_init_fmt = self.proj_data / 'simulations' / self.sim_init_file_fmt
+        self.sim_state_fmt = self.proj_data / 'simulations' / self.sim_state_file_fmt
 
     def partial_format(self, **kwargs):
         for attr in (
