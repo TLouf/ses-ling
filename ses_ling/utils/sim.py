@@ -277,7 +277,7 @@ class Simulation:
     def get_switch_mask(self, df_may_switch):
         return get_switch_mask(df_may_switch, self.l_arr, self.q_arr, self.rng)
 
-    def step(self, tracking_list: list):
+    def run_step(self, tracking_list: list):
         agent_df = self.agent_df
         agent_df["cell"] = self.det_cell()
         agent_df["variant_interact"] = self.det_variant_interact()
@@ -316,7 +316,7 @@ class Simulation:
         pbar = tqdm(range(nr_steps))
         tracking_list = []
         for i in pbar:
-            switches_df = self.step(tracking_list)
+            switches_df = self.run_step(tracking_list)
             pbar.set_description(f"{switches_df.sum().sum()} switched variant")
 
         self.evol_variant0 = get_evolution_from_cumul(self.evol_variant0, tracking_list)
