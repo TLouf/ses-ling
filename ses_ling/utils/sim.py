@@ -306,7 +306,7 @@ class Simulation:
                 for i in range(self.nr_classes)
             ]
         )
-        agent_df = agent_df.drop(columns=['cell', 'variant_interact'])
+        self.agent_df = agent_df.drop(columns=['cell', 'variant_interact'])
         # more general but more computationally intensive:
         # iter_summmary = agent_df.groupby(['ses', 'variant']).size().rename(i + iterations_summary.shape[1])
         # tracking_list.append(iter_summmary)
