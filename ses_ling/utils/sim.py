@@ -266,6 +266,14 @@ class Simulation:
     def nr_agents(self):
         return self.agent_df.shape[0]
 
+    @property
+    def step(self):
+        return self.evol_variant0.shape[0] - 1
+
+    @property
+    def nr_cells(self):
+        return self.mob_matrix.shape[0]
+
     def det_variant_interact(self):
         return det_variant_interact(self.agent_df, self.rng)
 
