@@ -274,6 +274,14 @@ class Simulation:
     def nr_cells(self):
         return self.mob_matrix.shape[0]
 
+    def to_dict(self):
+        list_attr = [
+            'region', 'lv', 'q1', 'q2',
+            'nr_classes', 'nr_agents', 'nr_cells',
+            'cells_nr_users_th', 'step'
+        ]
+        return {attr: getattr(self, attr) for attr in list_attr}
+
     def det_variant_interact(self):
         return det_variant_interact(self.agent_df, self.rng)
 
