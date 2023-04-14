@@ -140,7 +140,6 @@ def det_variant_interact(agent_df, rng):
     variant_interact = (
         rng.random(nr_agents)[:, np.newaxis] > thresholds_cell_variants
     ).argmin(axis=1)
-    # variant_interact = agent_df['variant'][(rng.random(nr_agents)[:, np.newaxis] > thresholds_cell_variants).argmin(axis=1)].values
     return variant_interact
 
 
@@ -223,7 +222,6 @@ class Simulation:
             .to_frame()
             .T.rename_axis(index="step")
         )
-        # self.iterations_summary = self.agent_df.groupby(['ses', 'variant']).size().rename(0).to_frame()
 
     @classmethod
     def from_dict(cls, region, agent_dict: dict, *args, **kwargs):
@@ -307,9 +305,6 @@ class Simulation:
             ]
         )
         self.agent_df = agent_df.drop(columns=['cell', 'variant_interact'])
-        # more general but more computationally intensive:
-        # iter_summmary = agent_df.groupby(['ses', 'variant']).size().rename(i + iterations_summary.shape[1])
-        # tracking_list.append(iter_summmary)
         return switches_df
 
     def run(self, nr_steps, show_progress=False):
@@ -320,7 +315,6 @@ class Simulation:
             pbar.set_description(f"{switches_df.sum().sum()} switched variant")
 
         self.evol_variant0 = get_evolution_from_cumul(self.evol_variant0, tracking_list)
-        # iterations_summary = pd.concat([iterations_summary] + list_iter_summary, axis=1).fillna(0).astype(int).rename_axis('time', axis=1)
 
     def save_state(self, path_fmt=None):
         if path_fmt is None:
