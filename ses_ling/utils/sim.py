@@ -237,30 +237,40 @@ class Simulation:
 
     @classmethod
     def from_saved_state(
-        cls, region, *args,
-        step=0, nr_classes=2, path_fmt=None, lv=0.5, q1=0.5, q2=0.5, **kwargs,
+        cls, region, step=0, nr_classes=2, lv=0.5, q1=0.5, q2=0.5,
+        cells_nr_users_th=15, path_fmt=None, **kwargs,
     ):
-        if path_fmt is None:
-            path_fmt = path_utils.ProjectPaths().sim_state_fmt
-        fmt_dict = {
-            **kwargs,
-            **{'region': region, 'nr_classes': nr_classes, 'lv': lv, 'q1': q1, 'q2': q2}
+        # Here haev to mimick __init__'s signature to make clear some arguments are
+        # needed for `sim_init_fmt` and `sim_state_fmt`
+        cls_args_dict = {
+            'region': region, 'cells_nr_users_th': cells_nr_users_th,
+            'lv': lv, 'q1': q1, 'q2': q2
         }
-        mob_matrix_save_path = Path(str(path_fmt).format(kind='mob_matrix', step=0, **fmt_dict))
+        fmt_dict = {**kwargs, **cls_args_dict}
+        fmt_dict['nr_classes'] = nr_classes
+        init_fmt = path_fmt or path_utils.ProjectPaths().sim_init_fmt
+        mob_matrix_save_path = Path(str(init_fmt).format(name='mob_matrix', **fmt_dict))
         mob_matrix = pd.read_parquet(mob_matrix_save_path)
 
+        if path_fmt is None:
+            if step == 0:
+                path_fmt = init_fmt
+            else:
+                path_fmt = path_utils.ProjectPaths().sim_state_fmt
         fmt_dict['step'] = step
-        agent_df_save_path = Path(str(path_fmt).format(kind='agent_df', **fmt_dict))
+        agent_df_save_path = Path(str(path_fmt).format(name='agent_df', **fmt_dict))
         agent_df = pd.read_parquet(agent_df_save_path).astype(int)
 
-        instance = cls(region, *args, agent_df=agent_df, mob_matrix=mob_matrix, **kwargs)
+        class_instance = cls(
+            agent_df=agent_df, mob_matrix=mob_matrix, **cls_args_dict, **kwargs
+        )
         if step > 0:
-            evol_save_path = Path(str(path_fmt).format(kind='evol_df', **fmt_dict))
+            evol_save_path = Path(str(path_fmt).format(name='evol_df', **fmt_dict))
             evol_df = pd.read_parquet(evol_save_path)
             cols = evol_df.columns
             evol_df = evol_df.rename(columns=dict(zip(cols, cols.astype(int))))
-            instance.evol_variant0 = evol_df
-        return instance
+            class_instance.evol_variant0 = evol_df
+        return class_instance
 
     @property
     def nr_agents(self):
@@ -334,28 +344,28 @@ class Simulation:
 
     def save_state(self, path_fmt=None):
         if path_fmt is None:
-            path_fmt = path_utils.ProjectPaths().sim_state_fmt
-        fmt_dict = {
-            'region': self.region,
-            'step': self.evol_variant0.shape[0] - 1,
-            'nr_classes': self.nr_classes,
-            'lv': self.lv,
-            'q1': self.q1,
-            'q2': self.q2,
-        }
-        evol_save_path = Path(str(path_fmt).format(kind='evol_df', **fmt_dict))
-        cols = self.evol_variant0.columns
-        self.evol_variant0.rename(columns=dict(zip(cols, cols.astype(str)))).to_parquet(evol_save_path)
+            if self.step == 0:
+                path_fmt = path_utils.ProjectPaths().sim_init_fmt
+            else:
+                path_fmt = path_utils.ProjectPaths().sim_state_fmt
+
+        fmt_dict = self.to_dict()
+
+        if self.step > 0:
+            evol_save_path = Path(str(path_fmt).format(name='evol_df', **fmt_dict))
+            cols = self.evol_variant0.columns
+            self.evol_variant0.rename(columns=dict(zip(cols, cols.astype(str)))).to_parquet(evol_save_path)
 
         saved_agent_df = self.agent_df.copy().astype({'variant': bool})
         if self.nr_classes == 2:
             saved_agent_df = saved_agent_df.astype({'ses': bool})
-        agent_df_save_path = Path(str(path_fmt).format(kind='agent_df', **fmt_dict))
+        agent_df_save_path = Path(str(path_fmt).format(name='agent_df', **fmt_dict))
         saved_agent_df.to_parquet(agent_df_save_path)
 
-        fmt_dict = {**fmt_dict, **{'step': 0}}
-        mob_matrix_save_path = Path(str(path_fmt).format(kind='mob_matrix', **fmt_dict))
-        self.mob_matrix.to_parquet(mob_matrix_save_path)
+        if self.step == 0:
+            fmt_dict = {**fmt_dict, **{'step': 0}}
+            mob_matrix_save_path = Path(str(path_fmt).format(name='mob_matrix', **fmt_dict))
+            self.mob_matrix.to_parquet(mob_matrix_save_path)
 
     def plot_evol(self, **kwargs):
         nr_agents_per_class = self.agent_df.groupby('ses').size().to_dict()
