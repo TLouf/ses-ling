@@ -1,13 +1,120 @@
 from __future__ import annotations
 
+import datetime
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import paramiko
+from dotenv import load_dotenv
 from tqdm import tqdm
 
 import ses_ling.utils.paths as path_utils
 import ses_ling.visualization.sim as sim_viz
+
+
+def nured_run(
+    script_fname,
+    args,
+    allocated_time,
+    waiting_time=0,
+    executable=None,
+    custom_log_file=True,
+    ssh_domain="nuredduna2020",
+    username_key="IFISC_USERNAME",
+    run_path="/usr/local/bin/run",
+    script_dir="scripts",
+    proj_dir=None,
+):
+    """Runs a Python script on nuredduna with some arguments.
+
+    Parameters
+    ----------
+    script_fname : str
+        Name of the python file to execute.
+    args : str | list[str]
+        Arguments to provide to the script. Can contain optional, named arguments of the
+        form --arg value, that can be parsed easily with `argparse`
+        https://docs.python.org/3/library/argparse.html
+    allocated_time : int
+        How many minutes your job is allowed to run.
+    waiting_time : int, optional
+        How many seconds to wait between job submissions, to avoid collapsing the disk
+        servers. Default is 0.
+    executable : str, optional
+        Optionally, select manually the executable, which by default is the virtual
+        environment's Python. This default only works if you're launching a job from
+        `salmunia` that shares the same conda environments, to launch locally you'd have
+        to specify this argument.
+    custom_log_file : bool, optional
+        Whether to customize run's default log file names, if True, will be in a "logs"
+        subfolder and named according to the script name and time of submission.
+    ssh_domain : str, optional
+        Name of the server to connect to, by default "nuredduna2020"
+    username_key : str, optional
+        Name of the environment variable set in `.env` that contains your user name on
+        the server, by default "IFISC_USERNAME"
+    run_path : str
+        Path to the `run` executable, "/usr/local/bin/run" by default.
+    script_dir : str, optional
+        Directory where the script to run is located, relative to your project
+        directory, by default "scripts".
+    proj_dir : str, optional
+        Directory where your project files are located, by default the environment
+        variable "PROJ_DIR" will be taken.
+    """
+    load_dotenv()
+    if isinstance(args, str):
+        args = [args]
+
+    script_dir = Path(proj_dir or os.environ["PROJ_DIR"]) / script_dir
+
+    if executable is None:
+        # This assumes we're on the server.
+        venv_path = os.environ.get("CONDA_PREFIX", os.environ.get("VIRTUAL_ENV"))
+        executable = Path(venv_path) / "bin" / "python"
+
+    sbatch_dir = "/common/slurm/bin"
+    base_cmd = f"export PATH=$PATH:{sbatch_dir};cd {script_dir};"
+
+    py_file_path = Path(script_fname)
+    if custom_log_file:
+        logs_dir = script_dir / 'logs'
+        logs_dir.mkdir(exist_ok=True)
+        time_str = datetime.datetime.now().isoformat(timespec='milliseconds')
+        log_file_fmt = f"{py_file_path.stem}_{time_str}{{i}}{{type}}.log"
+    else:
+        log_str = ""
+
+    whole_cmd = base_cmd
+    for i, a in enumerate(args):
+        if custom_log_file:
+            iter_log_file = logs_dir / log_file_fmt.format(type="_out", i=i)
+            iter_err_log_file = logs_dir / log_file_fmt.format(type="_err", i=i)
+            log_str = f" -o {iter_log_file} -e {iter_err_log_file}"
+
+        whole_cmd += (
+            f"{run_path} -t {allocated_time}{log_str}"
+            # Because this part below is enclosed in quotes, optional arguments can be
+            # used, otherwise they are interpreted as `run`'s optional arguments.
+            f' "{executable} {py_file_path} {a}";'
+        )
+
+        if waiting_time:
+            whole_cmd += f"sleep {waiting_time};"
+
+    print(whole_cmd)
+
+    # Get username fron environment variable in case it was not configured in
+    # `~/.ssh/.config`.
+    ssh_username = os.environ.get(username_key)
+    with paramiko.client.SSHClient() as ssh_client:
+        ssh_client.load_system_host_keys()
+        ssh_client.connect(ssh_domain, username=ssh_username)
+        ssh_stdin, ssh_stdout, ssh_stderr = ssh_client.exec_command(whole_cmd)
+        print(ssh_stderr.readlines())
+        print(ssh_stdout.readlines())
 
 
 def det_cell(thresholds_cell_moves, cell_cumul_pop, rng):
