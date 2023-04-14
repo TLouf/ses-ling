@@ -312,8 +312,8 @@ class Simulation:
         # tracking_list.append(iter_summmary)
         return switches_df
 
-    def run(self, nr_steps):
-        pbar = tqdm(range(nr_steps))
+    def run(self, nr_steps, show_progress=False):
+        pbar = tqdm(range(nr_steps), disable=not show_progress)
         tracking_list = []
         for i in pbar:
             switches_df = self.run_step(tracking_list)
