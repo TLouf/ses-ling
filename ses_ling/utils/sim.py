@@ -146,10 +146,9 @@ def det_variant_interact(agent_df, rng):
 def get_switch_mask(df_may_switch, l_arr, q_arr, rng):
     # og variant = 0 implies s, else 1-s.
     s_switch = l_arr[df_may_switch["variant"].astype(int)]
-    # ses = 0 implies q1, og variant 0 implies (1 - q1), og 1 implies q1
-    # ses = 1 implies q2, og variant 0 implies q2, og 1 implies (1 - q2)
+    # ses = k: og variant 0 implies (1 - q_{k,0}]), og 1 implies q_{k,0}
     q_ses = q_arr[df_may_switch["ses"].astype(int)]
-    q_switch = q_ses - (df_may_switch["variant"] == 0).astype(int) * (2 * q_ses - 1)
+    q_switch = q_ses - (2 * q_ses - 1) * (df_may_switch["variant"] == 0).astype(int)
     switch_th = q_switch * s_switch
     switch_mask = rng.random(df_may_switch.shape[0]) < switch_th
     return switch_mask
@@ -173,10 +172,44 @@ class Simulation:
         lv: float = 0.5,
         q1: float = 0.5,
         q2: float = 0.5,
-        cells_nr_users_th: int = 15,
+        cells_nr_users_th: int = 0,
         rng: int | np.random.Generator = 1,
+        **kwargs,
     ):
+        """_summary_
 
+        Parameters
+        ----------
+        region : str
+            _description_
+        agent_df : pd.DataFrame
+            _description_
+        mob_matrix : pd.DataFrame
+            _description_
+        lv : float, optional
+            Global prestige of variant 2, by default 0.5. Expected to be above 0.5.
+        q1 : float, optional
+            Preference of lowest class for variant 1, by default 0.5. Expected to be
+            superior to lv to have "interesting" simulations, meaning ones that don't
+            lead for sure to extinction of one of the two varieties..
+        q2 : float, optional
+            Preference of highest class for variant 2, by default 0.5. If more than 2
+            classes, preference of each class for variant 1 will be taken from a linear
+            interpolation between q1 and (1 - q2). q2 is thus expecetd to be superior or
+            equal to 0.5.
+        cells_nr_users_th : int, optional
+            _description_, by default 0: run simulation with all cells, potentially
+            measure metrics on subsset of cells though.
+        rng : int | np.random.Generator, optional
+            _description_, by default 1
+
+        Raises
+        ------
+        ValueError
+            _description_
+        ValueError
+            _description_
+        """
         self.region = region
         self.cells_nr_users_th = cells_nr_users_th
         # agent_df must have "ses", "res_cell" and "variant" columns / keys
@@ -210,8 +243,13 @@ class Simulation:
         self.l_arr = np.array([lv, 1 - lv])
         self.q1 = q1
         self.q2 = q2
-        # This array should be modified if more than 2 classes are introduced!
-        self.q_arr = np.array([q1, 1 - q2])
+        # to make computation easier, in the following array suppose the given qs are
+        # all preference for variant 0 of the SES classes, hence the 1-q2
+        self.q_arr = np.linspace(q1, 1-q2, self.nr_classes)
+
+        if 'variant' not in self.agent_df.columns:
+            variant_probas = agent_df['ses'] / (self.nr_classes - 1)
+            self.agent_df['variant'] = self.rng.random(agent_df.shape[0]) < variant_probas
 
         self.evol_variant0 = (
             self.agent_df.groupby(["variant", "ses"])
@@ -240,7 +278,7 @@ class Simulation:
         cls, region, step=0, nr_classes=2, lv=0.5, q1=0.5, q2=0.5,
         cells_nr_users_th=15, path_fmt=None, **kwargs,
     ):
-        # Here haev to mimick __init__'s signature to make clear some arguments are
+        # Here have to mimick __init__'s signature to make clear some arguments are
         # needed for `sim_init_fmt` and `sim_state_fmt`
         cls_args_dict = {
             'region': region, 'cells_nr_users_th': cells_nr_users_th,
@@ -324,6 +362,7 @@ class Simulation:
             .unstack(fill_value=0)
         )
         switches = switches_df.to_dict()
+        # To update if more than 2 variants.
         tracking_list.append(
             [
                 switches.get(i, {}).get(0, 0) - switches.get(i, {}).get(1, 0)
