@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
+
 def matrix_pearsonr(mat):
     mat = mat / mat.sum()
-
     j = np.arange(mat.shape[0])
     wj = j * mat
     wi = (j * mat.T).T
