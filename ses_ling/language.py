@@ -585,16 +585,13 @@ class Language:
         if set_cells_mask:
             self.cells_mask = mask
         print(
-            f'{mask.sum()} cells left after masking cells where there are fewer than ',
-            f'{self.cells_nr_users_th} residents',
+            f'{mask.sum()} cells left after masking cells where there are fewer than',
+            f' {self.cells_nr_users_th} residents',
         )
         return mask
 
 
-    def iter_subregs(
-        self, raw_subreg_df, selected_subregs=None, ses_metric=None, cat_id=None,
-        include_pop=False
-    ):
+    def iter_subregs_mask(self, raw_subreg_df, selected_subregs=None):
         if selected_subregs is None:
             subreg_df = raw_subreg_df.copy()
         else:
@@ -602,10 +599,17 @@ class Language:
             subreg_df = raw_subreg_df.loc[mask, :].copy()
 
         for name, df in subreg_df.groupby('subreg'):
-            # careful: all these DFs are not necessarily based on same set of users!
             print(f'** {name} **')
-            subreg_d = {}
             reg_mask = self.make_subregions_mask(df, set_cells_mask=False)
+            yield name, reg_mask
+
+    def iter_subregs(
+        self, raw_subreg_df, selected_subregs=None, ses_metric=None, cat_id=None,
+        include_pop=False
+    ):
+        for name, reg_mask in self.iter_subregs_mask(raw_subreg_df, selected_subregs):
+            # careful: all these DFs are not necessarily based on same set of users!
+            subreg_d = {}
             subreg_d['cells_mask'] = reg_mask
             masks_dict = {'cell_id': reg_mask}
             subreg_d['user_res_cell'] = ses_data.apply_masks(
