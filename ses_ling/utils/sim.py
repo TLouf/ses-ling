@@ -173,7 +173,7 @@ class Simulation:
         q1: float = 0.5,
         q2: float = 0.5,
         cells_nr_users_th: int = 0,
-        rng: int | np.random.Generator = 1,
+        sim_id=None,
         **kwargs,
     ):
         """_summary_
@@ -210,6 +210,7 @@ class Simulation:
         ValueError
             _description_
         """
+        self.sim_id = sim_id
         self.region = region
         self.cells_nr_users_th = cells_nr_users_th
         # agent_df must have "ses", "res_cell" and "variant" columns / keys
@@ -284,7 +285,7 @@ class Simulation:
             'region': region, 'cells_nr_users_th': cells_nr_users_th,
             'lv': lv, 'q1': q1, 'q2': q2
         }
-        fmt_dict = {**kwargs, **cls_args_dict}
+        fmt_dict = {**kwargs, **cls_args_dict, **{'sim_id': kwargs.get('sim_id') or ""}}
         fmt_dict['nr_classes'] = nr_classes
         init_fmt = path_fmt or path_utils.ProjectPaths().sim_init_fmt
         mob_matrix_save_path = Path(str(init_fmt).format(name='mob_matrix', **fmt_dict))
@@ -326,7 +327,7 @@ class Simulation:
         list_attr = [
             'region', 'lv', 'q1', 'q2',
             'nr_classes', 'nr_agents', 'nr_cells',
-            'cells_nr_users_th', 'step'
+            'cells_nr_users_th', 'step', 'sim_id'
         ]
         return {attr: getattr(self, attr) for attr in list_attr}
 
@@ -388,7 +389,7 @@ class Simulation:
             else:
                 path_fmt = path_utils.ProjectPaths().sim_state_fmt
 
-        fmt_dict = self.to_dict()
+        fmt_dict = {**self.to_dict(), **{'sim_id': self.sim_id or ""}}
 
         if self.step > 0:
             evol_save_path = Path(str(path_fmt).format(name='evol_df', **fmt_dict))

@@ -1,3 +1,4 @@
+import datetime
 import sys
 
 import ses_ling.utils.sim as sim_utils
@@ -19,6 +20,7 @@ if __name__ == '__main__':
             city, lv=lv, q1=q1, q2=q2,
             cells_nr_users_th=cells_nr_users_th, nr_classes=nr_classes
         )
+        sim.sim_id = f"_{datetime.datetime.now().isoformat()}"
         print(sim.to_dict())
         sim.run(nr_steps)
         sim.save_state()
