@@ -173,6 +173,7 @@ class Simulation:
         q1: float = 0.5,
         q2: float = 0.5,
         cells_nr_users_th: int = 0,
+        rng: None | int | np.random.Generator = 1,
         sim_id=None,
         **kwargs,
     ):
@@ -220,7 +221,7 @@ class Simulation:
                 "agents must be sorted in contiguous groups of residence cells with" 
                 " monotonically increasing IDs."
             )
-        if isinstance(rng, int):
+        if rng is None or isinstance(rng, int):
             self.rng = np.random.default_rng(rng)
         elif isinstance(rng, np.random.Generator):
             self.rng = rng
