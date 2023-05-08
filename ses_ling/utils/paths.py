@@ -56,8 +56,12 @@ def format_path(path_fmt, *args, **kwargs):
     return Path(str(path_fmt).format(*args, **kwargs))
 
 
-def get_params_str(*param_names):
+def get_params_fmt_str(*param_names):
     return '_'.join("{0}={{{0}}}".format(p) for p in param_names)
+
+
+def get_params_str(**kwargs):
+    return '_'.join(f"{p}={v}" for p, v in kwargs.items())
 
 
 @dataclass
@@ -76,41 +80,41 @@ class ProjectPaths:
     user_cells_from_gps_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
         name='user_cells_from_gps',
-        params_fmt=get_params_str(*user_cells_from_gps_params),
+        params_fmt=get_params_fmt_str(*user_cells_from_gps_params),
     )
     user_cell_acty_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
         name='user_cell_acty',
-        params_fmt=get_params_str(*user_cell_acty_params),
+        params_fmt=get_params_fmt_str(*user_cell_acty_params),
     )
     user_residence_cell_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
         name='user_residence_cell',
-        params_fmt=get_params_str(
+        params_fmt=get_params_fmt_str(
             *user_cell_acty_params, 'pois_dups_th', *cell_assign_params
         ),
     )
     user_mistakes_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
         name='user_mistakes',
-        params_fmt=get_params_str(*cell_assign_params),
+        params_fmt=get_params_fmt_str(*cell_assign_params),
     )
     user_corpora_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
         name='user_corpora',
-        params_fmt=get_params_str(*cell_assign_params),
+        params_fmt=get_params_fmt_str(*cell_assign_params),
     )
 
     sim_data_fname_fmt: str = '{name}_{params_fmt}.parquet'
     sim_init_file_fmt: str = partial_format(
         sim_data_fname_fmt,
         name='{region}_{name}',
-        params_fmt=get_params_str('cells_nr_users_th', 'nr_classes'),
+        params_fmt=get_params_fmt_str('cells_nr_users_th', 'nr_classes'),
     )
     sim_state_file_fmt: str = partial_format(
         sim_data_fname_fmt,
         name='{region}_{name}',
-        params_fmt=get_params_str(
+        params_fmt=get_params_fmt_str(
             'cells_nr_users_th', 'nr_classes', 'lv', 'q1', 'q2', 'step'
         ),
     )
