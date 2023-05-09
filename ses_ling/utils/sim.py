@@ -173,7 +173,7 @@ class Simulation:
         q1: float = 0.5,
         q2: float = 0.5,
         cells_nr_users_th: int = 0,
-        rng: None | int | np.random.Generator = 1,
+        rng: None | int | np.random.Generator = None,
         sim_id=None,
         **kwargs,
     ):
