@@ -233,17 +233,19 @@ def choropleth(
 
     fig = ax.get_figure()
 
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    if cax is None:
-        divider = make_axes_locatable(ax)
-        # Create an axes on the right side of ax. The width of cax will be 5% of ax
-        # and the padding between cax and ax will be fixed at 0.1 inch.
-        cax = divider.append_axes('right', size='5%', pad=0.1)
-
-    cbar = fig.colorbar(sm, cax=cax, label=cbar_label, **cbar_kwargs)
+    if cbar_label is not None:
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        if cax is None:
+            divider = make_axes_locatable(ax)
+            # Create an axes on the right side of ax. The width of cax will be 5% of ax
+            # and the padding between cax and ax will be fixed at 0.1 inch.
+            cax = divider.append_axes('right', size='5%', pad=0.1)
+        axes = np.append(axes, cax)
+    
+        cbar = fig.colorbar(sm, cax=cax, label=cbar_label, **cbar_kwargs)
 
     if normed_bboxes is not None:
-        for ax, bbox in zip(np.append(axes, cax), normed_bboxes):
+        for ax, bbox in zip(axes, normed_bboxes):
             ax.set_position(bbox)
 
     if save_path:
