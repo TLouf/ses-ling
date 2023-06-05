@@ -639,6 +639,34 @@ class Language:
             yield name, subreg_d
 
 
+    @property
+    def subreg_df(self):
+        return self._subreg_df
+
+    @subreg_df.setter
+    def subreg_df(self, _subreg_df):
+        self._subreg_df = _subreg_df
+        del self.cells_subreg
+
+    @property
+    def cells_subreg(self):
+        if 'subreg' not in self.cells_geodf.columns:
+            self.cells_geodf['subreg'] = None
+            for name, df in self.subreg_df.groupby('subreg'):
+                mask = self.make_subregions_mask(df)
+                self.cells_geodf.loc[mask, 'subreg'] = name
+        return self.cells_geodf['subreg']
+
+    @cells_subreg.setter
+    def cells_subreg(self, _cells_subreg):
+        self.cells_geodf['subreg'] = _cells_subreg
+
+    @cells_subreg.deleter
+    def cells_subreg(self):
+        if self._cells_geodf is not None:
+            self._cells_geodf = self.cells_geodf.drop(columns='subreg', errors='ignore')
+
+
     def get_lt_rules(self, lt_cats_dict):
         self.lt_rules = (
             pd.concat(
