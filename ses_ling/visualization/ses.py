@@ -4,7 +4,7 @@ import numpy as np
 import ses_ling.visualization.utils as viz_utils
 
 
-def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, **subplot_kwargs):
+def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, show_pearson=False, **subplot_kwargs):
     mosaic = viz_utils.prep_mosaic_from_dict(assort_dict, nr_cols=nr_cols)
     nr_rows = mosaic.shape[0]
     mosaic = np.column_stack((['supy'] * nr_rows, mosaic, ['cax'] * nr_rows))
@@ -19,6 +19,7 @@ def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, **subplot_kwar
     ])
     for i, (city, city_dict) in enumerate(assort_dict.items()):
         ax = axd[city]
+        pearsonr = city_dict['pearsonr']
         assort_plot = city_dict['assort'].T[::-1].copy()
         vmin = min(assort_mins)
         vmax = min(assort_maxs)
@@ -27,7 +28,7 @@ def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, **subplot_kwar
             vmax = np.log10(vmax)
             vmin = np.log10(vmin)
         im = ax.imshow(assort_plot, cmap='Blues', vmin=vmin, vmax=vmax)
-        ax.set_title(f"{city}")#, r = {pearsonr:.2f}")
+        ax.set_title(city + show_pearson * f", r = {pearsonr:.2f}")
         spec = ax.get_subplotspec()
         if spec.colspan.start >= 2:
             ax.sharey(axd[mosaic[spec.rowspan.start, 1]])
