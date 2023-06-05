@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rpack
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from shapely.geometry import box
+from shapely.geometry import MultiPolygon, box
 
 import ses_ling.utils.geometry as geo_utils
 
@@ -180,8 +180,10 @@ def cluster_level(
 def choropleth(
     plot_series, regions, axes=None, cax=None, cmap=None,
     norm=None, vmin=None, vmax=None, vcenter=None,
-    cbar_label=None, null_color='gray', save_path=None, show=True,
-    cbar_kwargs=None, clip_to_cells=False, normed_bboxes=None, **plot_kwargs
+    null_color='gray', save_path=None, show=True,
+    cbar_label=None, cbar_kwargs=None, normed_bboxes=None,
+    area_from_cells_union=False, clip_to_cells=False,
+    **plot_kwargs
 ):
     '''
     Make a choropleth map from continuous values given in `plot_series` for some given
@@ -214,10 +216,17 @@ def choropleth(
     
     for ax, reg in zip(axes, regions):
         plot_df = reg.cells_geodf.rename_axis('cell_id').join(plot_series, how='inner')
-        area_gdf = reg.shape_geodf.copy()
         plot_area = plot_df.shape[0] > 0.5 * reg.cells_geodf.shape[0]
-        if clip_to_cells and plot_area:
-            area_gdf = area_gdf.clip(box(*plot_df.total_bounds))
+        if plot_area:
+            area_gdf = reg.shape_geodf.copy()
+            if clip_to_cells:
+                area_gdf = area_gdf.clip(box(*plot_df.total_bounds))
+            elif area_from_cells_union:
+                union = plot_df.unary_union
+                union = MultiPolygon(
+                    [poly for poly in union.geoms if poly.area > union.area / 1000]
+                ).simplify(100)
+                area_gdf = geopd.GeoSeries(union, crs=plot_df.crs)
         if plot_area:
             area_gdf.plot(ax=ax, color=null_color, edgecolor='none', alpha=0.3)
 
