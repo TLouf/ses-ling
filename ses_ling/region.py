@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-import json
 import inspect
-from dataclasses import dataclass, field, InitVar, _FIELD
+from dataclasses import _FIELD, InitVar, dataclass, field
 
-from tqdm.auto import tqdm
-import numpy as np
-import pandas as pd
 import geopandas as geopd
+import pandas as pd
+from tqdm.auto import tqdm
 
 import ses_ling.data.socioeconomic as ses_data
-import ses_ling.utils.paths as paths_utils
 import ses_ling.utils.geometry as geo_utils
+import ses_ling.utils.paths as paths_utils
 import ses_ling.utils.spatial_agg as spatial_agg
+
 
 @dataclass
 class Region:
