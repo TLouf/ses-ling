@@ -22,7 +22,7 @@ def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, show_pearson=F
         pearsonr = city_dict['pearsonr']
         assort_plot = city_dict['assort'].T[::-1].copy()
         vmin = min(assort_mins)
-        vmax = min(assort_maxs)
+        vmax = max(assort_maxs)
         if log_scale:
             assort_plot = np.log10(assort_plot)
             vmax = np.log10(vmax)
