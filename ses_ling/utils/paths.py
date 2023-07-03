@@ -115,7 +115,7 @@ class ProjectPaths:
         sim_data_fname_fmt,
         name='{region}_{name}',
         params_fmt=get_params_fmt_str(
-            'cells_nr_users_th', 'nr_classes', 'lv', 'q1', 'q2', 'step'
+            'cells_nr_users_th', 'nr_classes', 's', 'q1', 'q2', 'step'
         ) + "{sim_id}",
     )
 

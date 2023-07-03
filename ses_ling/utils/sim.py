@@ -169,7 +169,7 @@ class Simulation:
         region: str,
         agent_df: pd.DataFrame,
         mob_matrix: pd.DataFrame,
-        lv: float = 0.5,
+        s: float = 0.5,
         q1: float = 0.5,
         q2: float = 0.5,
         cells_nr_users_th: int = 0,
@@ -187,11 +187,11 @@ class Simulation:
             _description_
         mob_matrix : pd.DataFrame
             _description_
-        lv : float, optional
+        s : float, optional
             Global prestige of variant 2, by default 0.5. Expected to be above 0.5.
         q1 : float, optional
             Preference of lowest class for variant 1, by default 0.5. Expected to be
-            superior to lv to have "interesting" simulations, meaning ones that don't
+            superior to s to have "interesting" simulations, meaning ones that don't
             lead for sure to extinction of one of the two varieties..
         q2 : float, optional
             Preference of highest class for variant 2, by default 0.5. If more than 2
@@ -240,9 +240,9 @@ class Simulation:
             self.agent_df['res_cell'].value_counts().sort_index().cumsum().values,
         ])
 
-        self.lv = lv
+        self.s = s
         # This array has size (nr_variants,)
-        self.l_arr = np.array([lv, 1 - lv])
+        self.l_arr = np.array([s, 1 - s])
         self.q1 = q1
         self.q2 = q2
         # to make computation easier, in the following array suppose the given qs are
@@ -277,14 +277,14 @@ class Simulation:
 
     @classmethod
     def from_saved_state(
-        cls, region, step=0, nr_classes=2, lv=0.5, q1=0.5, q2=0.5,
+        cls, region, step=0, nr_classes=2, s=0.5, q1=0.5, q2=0.5,
         cells_nr_users_th=15, path_fmt=None, **kwargs,
     ):
         # Here have to mimick __init__'s signature to make clear some arguments are
         # needed for `sim_init_fmt` and `sim_state_fmt`
         cls_args_dict = {
             'region': region, 'cells_nr_users_th': cells_nr_users_th,
-            'lv': lv, 'q1': q1, 'q2': q2
+            's': s, 'q1': q1, 'q2': q2
         }
         fmt_dict = {**kwargs, **cls_args_dict, **{'sim_id': kwargs.get('sim_id') or ""}}
         fmt_dict['nr_classes'] = nr_classes
@@ -326,7 +326,7 @@ class Simulation:
 
     def to_dict(self):
         list_attr = [
-            'region', 'lv', 'q1', 'q2',
+            'region', 's', 'q1', 'q2',
             'nr_classes', 'nr_agents', 'nr_cells',
             'cells_nr_users_th', 'step', 'sim_id'
         ]
