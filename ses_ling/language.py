@@ -572,43 +572,55 @@ class Language:
             self.add_ses_idx(name)
         return self.cells_ses_df.loc[(slice(None), name), metric].unstack()[name]
 
-
-    def make_subregions_mask(self, subreg_df, set_cells_mask=False):
-        # set_cells_mask defaults to False because setting cells_mask deletes
-        # cells_mistakes
+    def make_subregions_mask(self, subreg_df):
         regions_dict = self.regions_dict
         mask = pd.Series(dtype=bool)
         for cc in subreg_df.index.levels[0]:
             r = regions_dict[cc]
             mask = pd.concat([mask, r.make_subregions_mask(subreg_df.loc[cc])])
-        mask = self.cells_mask & mask.reindex(self.cells_geodf.index).fillna(False)
-        mask = mask.rename('isin_area')
-        if set_cells_mask:
-            self.cells_mask = mask
-        print(
-            f'{mask.sum()} cells left after masking cells where there are fewer than',
-            f' {self.cells_nr_users_th} residents',
-        )
         return mask
 
+    def make_relevant_subregions_mask(self, subreg_mask, set_cells_mask=False):
+        # set_cells_mask defaults to False because setting cells_mask deletes
+        # cells_mistakes
+        relevant_mask = self.cells_mask & subreg_mask.reindex(self.cells_geodf.index).fillna(False)
+        relevant_mask = relevant_mask.rename('isin_area')
+        if set_cells_mask:
+            self.cells_mask = relevant_mask
+        print(
+            f'{relevant_mask.sum()} cells left after masking cells where there are fewer than',
+            f' {self.cells_nr_users_th} residents',
+        )
+        return relevant_mask
 
-    def iter_subregs_mask(self, raw_subreg_df, selected_subregs=None):
-        if selected_subregs is None:
-            subreg_df = raw_subreg_df.copy()
+
+    def iter_subregs_mask(self, raw_subreg_df=None, selected_subregs=None):
+        if raw_subreg_df is None:
+            for name, df in self.cells_geodf.groupby(self.cells_subreg.name):
+                print(f'** {name} **')
+                subreg_mask = df.assign(mask=True)['mask'].reindex(self.cells_geodf.index).fillna(False)
+                relevant_mask = self.make_relevant_subregions_mask(subreg_mask, set_cells_mask=False)
+                yield name, (subreg_mask, relevant_mask)
         else:
-            mask = raw_subreg_df.index.isin(selected_subregs, level='subreg')
-            subreg_df = raw_subreg_df.loc[mask, :].copy()
+            if selected_subregs is None:
+                subreg_df = raw_subreg_df.copy()
+            else:
+                mask = raw_subreg_df.index.isin(selected_subregs, level='subreg')
+                subreg_df = raw_subreg_df.loc[mask, :].copy()
 
-        for name, df in subreg_df.groupby('subreg'):
-            print(f'** {name} **')
-            reg_mask = self.make_subregions_mask(df, set_cells_mask=False)
-            yield name, reg_mask
+            for name, df in subreg_df.groupby('subreg'):
+                print(f'** {name} **')
+                subreg_mask = self.make_subregions_mask(df)
+                relevant_mask = self.make_relevant_subregions_mask(subreg_mask, set_cells_mask=False)
+                yield name, (subreg_mask, relevant_mask)
 
     def iter_subregs(
-        self, raw_subreg_df, selected_subregs=None, ses_metric=None, cat_id=None,
+        self, raw_subreg_df=None, selected_subregs=None, ses_metric=None, cat_id=None,
         include_pop=False
     ):
-        for name, reg_mask in self.iter_subregs_mask(raw_subreg_df, selected_subregs):
+        for name, (_, reg_mask) in self.iter_subregs_mask(
+            raw_subreg_df, selected_subregs
+        ):
             # careful: all these DFs are not necessarily based on same set of users!
             subreg_d = {}
             subreg_d['cells_mask'] = reg_mask
