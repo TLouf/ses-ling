@@ -1,4 +1,5 @@
 import datetime
+
 import numpy as np
 import pandas as pd
 import querier as qr
@@ -41,7 +42,7 @@ def get_consec_months_in_year(year, colls, pre_filter=None):
             ]
             res = list(con[colls].aggregate(pipeline, allowDiskUse=True))
 
-    user_months_df = data_access.mongo_groupby_to_df(res, pipeline)
+    user_months_df = data_access.groupby_res_to_df(res, pipeline)
     user_months_df['year'] = year
     user_months_df = user_months_df.set_index('year', append=True)
     # put 'year' level before 'month_nr'
@@ -114,7 +115,7 @@ def get_user_activity_by_source(year, colls, pre_filter=None):
         ]
         res = list(con[colls].aggregate(pipeline, allowDiskUse=True))
 
-    user_activity_df = data_access.mongo_groupby_to_df(res, pipeline)
+    user_activity_df = data_access.groupby_res_to_df(res, pipeline)
     return user_activity_df
 
 
