@@ -266,7 +266,7 @@ class Language:
     def user_cell_acty(self):
         self.user_cell_acty = None
 
-    
+
     @property
     def user_residence_cell(self):
         # TODO: when several regions, handle duplicate user_id (should be rare though
@@ -291,8 +291,8 @@ class Language:
         self.user_residence_cell = None
         for r in self.regions:
             del r.user_residence_cell
-  
-        
+
+
     @property
     def user_corpora(self):
         if self._user_corpora is None:
@@ -342,7 +342,7 @@ class Language:
     def user_mask(self, _user_mask):
         self.user_df['is_relevant'] = _user_mask
         # to force setters' deletions:
-        self.user_df['is_relevant'] = self.user_df['is_relevant'] 
+        self.user_df['is_relevant'] = self.user_df['is_relevant']
 
     @user_mask.deleter
     def user_mask(self):
@@ -456,7 +456,7 @@ class Language:
                              .set_index('metric', append=True)
                         )
                         self.cells_ses_df = self.cells_ses_df.join(score_stats)
-                    
+
         if not found_idx:
             print(f"{ses_idx} was not found anywhere.")
 
@@ -742,7 +742,7 @@ class Language:
         cbar_kwargs=None, save=False, **choro_kwargs
     ):
         z_plot = self.pre_process_z_plot(z_plot)
-        
+
         if normed_bboxes is True:
             if z_plot.shape[0] < 0.9 * self.cells_geodf.shape[0]:
                 width_ratios = self.get_custom_width_ratios(z_plot.index)
@@ -776,7 +776,7 @@ class Language:
             )
 
         # If normed_bboxes set to False, don't position the axes
-        if not normed_bboxes is False:
+        if normed_bboxes is not False:
             choro_kwargs['normed_bboxes'] = normed_bboxes
 
         fig, axes = map_viz.choropleth(
