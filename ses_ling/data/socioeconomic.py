@@ -259,6 +259,15 @@ def user_acty_to_assort(
 ):
     masks_dict = {'cell_id': cells_mask}
     cells_subset_ses_metric = apply_masks(cells_ses_metric, masks_dict)
+    od_df = user_acty_to_od(
+        user_cell_acty,
+        user_res_cell,
+        cells_mask=cells_mask,
+        users_mask=users_mask,
+        exclude_res_trips=exclude_res_trips,
+        normalize_incoming=normalize_incoming,
+    )
+
     masks_dict['user_id'] = users_mask
     cells_subset_user_res = apply_masks(user_res_cell, masks_dict)
     if cells_pop is None:
@@ -272,6 +281,22 @@ def user_acty_to_assort(
         )
         user_class = cells_subset_user_res.join(cells_class, on='cell_id')[cells_class.name]
 
+    assort = inter_cell_od_to_assort(
+        od_df, cells_class, normalize_incoming=normalize_incoming
+    )
+    return assort
+
+
+def user_acty_to_od(
+    user_cell_acty,
+    user_res_cell,
+    cells_mask=None,
+    users_mask=None,
+    exclude_res_trips=False,
+    normalize_incoming=False,
+):
+    masks_dict = {'cell_id': cells_mask, 'user_id': users_mask}
+    cells_subset_user_res = apply_masks(user_res_cell, masks_dict)
     cells_subset_user_acty = preprocess_cell_acty(
         user_cell_acty, cells_subset_user_res, masks_dict, exclude_res_trips
     )
@@ -280,7 +305,10 @@ def user_acty_to_assort(
     )
     od_groupby_col = 'cell_id' if normalize_incoming else 'res_cell_id'
     od_df = od_df / od_df.groupby(od_groupby_col).transform('sum')
+    return od_df
 
+
+def inter_cell_od_to_assort(od_df, cells_class, normalize_incoming=False):
     interclass_od = inter_cell_to_inter_class_od(
         od_df,
         cells_class,
@@ -294,7 +322,6 @@ def user_acty_to_assort(
         interclass_od, normalize_incoming=normalize_incoming
     )
     return assort
-
 
 def get_class_user_acty(user_cell_acty):
     class_user_acty = (
