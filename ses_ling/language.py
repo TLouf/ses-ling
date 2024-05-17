@@ -209,6 +209,7 @@ class Language:
     @property
     def cells_geodf(self):
         if self._cells_geodf is None:
+            # the `sort_index` here is extremely important throughout!!
             self._cells_geodf = pd.concat([
                 reg.cells_geodf.to_crs(self.latlon_proj)
                 for reg in self.regions
@@ -217,7 +218,10 @@ class Language:
 
     @cells_geodf.setter
     def cells_geodf(self, _cells_geodf):
-        self._cells_geodf = _cells_geodf
+        if _cells_geodf is None:
+            self._cells_geodf = _cells_geodf
+        else:
+            self._cells_geodf = _cells_geodf.sort_index()
         del self.user_residence_cell
 
     @cells_geodf.deleter
