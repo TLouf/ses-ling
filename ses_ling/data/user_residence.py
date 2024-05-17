@@ -63,7 +63,7 @@ def visited_places_in_year(
         ]
 
         res = con[colls].aggregate(pipeline, allowDiskUse=True)
-        visited_places = data_access.mongo_groupby_to_df(res, pipeline)
+        visited_places = data_access.groupby_res_to_df(res, pipeline)
 
     residents_series = pd.Series(
         True, index=pd.Index(resident_ids, name='user_id'), name='is_resident'
