@@ -41,7 +41,7 @@ def get_uids_to_include(year_from, year_to, colls, max_hourly_rate=10):
 
 
 @ray.remote
-def get_residents(year_from, year_to, pre_filter=None, nr_consec_months=3):
+def get_residents(year_from, year_to, colls, pre_filter=None, nr_consec_months=3):
     logging.config.dictConfig(LOG_CONFIG)
     LOGGER.info('** starting to get residents **')
     user_months_df = data_filter.agg_consec_months(
@@ -56,7 +56,7 @@ def main(year_from, year_to, colls):
     # TODO paralellize by year?
     ray.init(num_cpus=2)
     uids_to_include = get_uids_to_include.remote(year_from, year_to, colls, max_hourly_rate=10)
-    resident_ids = get_residents.remote(year_from, year_to, nr_consec_months=3)
+    resident_ids = get_residents.remote(year_from, year_to, colls, nr_consec_months=3)
     resident_ids = set(ray.get(resident_ids)) & set(ray.get(uids_to_include))
     ray.shutdown()
     return resident_ids
