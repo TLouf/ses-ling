@@ -553,19 +553,18 @@ class Language:
         self.cells_mistakes = None
 
 
-    def select_mistakes(self, metric='uavg_freq_per_word', cat_id=None, rule_id=None):
+    def select_mistakes(self, metric='uavg_freq_per_word', cat_id=None, rule_id=None, only_relevant_cells=True):
         series_name = f"{rule_id or cat_id or 'all'} mistakes".lower()
         if cat_id is None:
             cat_id = slice(None)
         if rule_id is None:
             rule_id = slice(None)
         idx_sel = (slice(None), cat_id, rule_id)
-        return (
-            self.cells_mistakes.loc[idx_sel, metric]
-             .groupby('cell_id')
-             .sum()
-             .rename(series_name)
-        )
+        # do this step anyway in case _cells_mistakes was not generated previously
+        mistakes = self.cells_mistakes.loc[idx_sel, metric]
+        if not only_relevant_cells:
+            mistakes = self._cells_mistakes.loc[idx_sel, metric]
+        return mistakes.groupby('cell_id').sum().rename(series_name)
 
 
     def select_ses_metric(self, name: str | list[str], metric='wavg'):
