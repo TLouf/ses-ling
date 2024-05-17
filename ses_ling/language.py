@@ -382,7 +382,7 @@ class Language:
     @user_mistakes.setter
     def user_mistakes(self, _user_mistakes):
         self._user_mistakes = _user_mistakes
-        del cells_mistakes
+        del self.cells_mistakes
 
     @user_mistakes.deleter
     def user_mistakes(self):
