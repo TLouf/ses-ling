@@ -528,10 +528,7 @@ class Language:
     @property
     def cells_mistakes(self):
         if self._cells_mistakes is None:
-            cells_mask = self.user_df['cell_id'].isin(self.relevant_cells)
-            udf = self.user_mistakes.join(
-                self.user_df.loc[self.user_mask & cells_mask, 'cell_id']
-            )
+            udf = self.user_mistakes.join(self.user_df.loc[self.user_mask, 'cell_id'])
             self._cells_mistakes = (
                 udf.groupby(['cell_id', 'cat_id', 'rule_id'])
                  .agg(
@@ -544,7 +541,8 @@ class Language:
                  .eval("uavg_freq_per_tweet = usum_freq_per_tweet / nr_users")
                  .loc[:, ['count', 'uavg_freq_per_word', 'uavg_freq_per_tweet']]
             )
-        return self._cells_mistakes
+        cells_mask = self._cells_mistakes.index.isin(self.relevant_cells, level='cell_id')
+        return self._cells_mistakes.loc[cells_mask]
 
     @cells_mistakes.setter
     def cells_mistakes(self, _cells_mistakes):
