@@ -248,7 +248,8 @@ def choropleth(
             divider = make_axes_locatable(ax)
             # Create an axes on the right side of ax. The width of cax will be 5% of ax
             # and the padding between cax and ax will be fixed at 0.1 inch.
-            cax = divider.append_axes('right', size='5%', pad=0.1)
+            cax_pos = 'bottom' if cbar_kwargs.get('orientation') == 'horizontal' else 'right'
+            cax = divider.append_axes(cax_pos, size='5%', pad=0.1)
         axes = np.append(axes, cax)
     
         cbar = fig.colorbar(sm, cax=cax, label=cbar_label, **cbar_kwargs)
