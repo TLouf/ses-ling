@@ -85,8 +85,8 @@ data/**
 *.swp
 *.swo
 
-# Mypy cache
-.mypy_cache/
+# All cache directories
+.*cache/
 
 # Bash scripts
 *.sh
