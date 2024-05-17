@@ -75,7 +75,9 @@ class ProjectPaths:
 
     user_cells_from_gps_params: InitVar[list] = ['gps_attr_cell_size', 'gps_dups_th']
     user_cell_acty_params: InitVar[list] = ['res_cell_size', 'gps_dups_th']
+    user_filter_params: InitVar[list] = ['user_nr_words_th']
     cell_assign_params: InitVar[list] = ['nighttime_acty_th', 'all_acty_th', 'count_th']
+    cell_filter_params: InitVar[list] = ['cells_nr_users_th']
     generic_year_range_data_fname_fmt: str = '{name}_{year_from}-{year_to}_{params_fmt}.parquet'
     user_cells_from_gps_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
@@ -104,7 +106,17 @@ class ProjectPaths:
         name='user_corpora',
         params_fmt=get_params_fmt_str(*cell_assign_params),
     )
-
+    cells_mistakes_fname_fmt: str = partial_format(
+        generic_year_range_data_fname_fmt,
+        name='cells_mistakes',
+        params_fmt=get_params_fmt_str(*user_filter_params, *cell_filter_params),
+    )
+    inter_cell_od_fname_fmt: str = partial_format(
+        generic_year_range_data_fname_fmt,
+        name='inter_cell_od_{subreg}',
+        params_fmt=get_params_fmt_str(*user_filter_params, *cell_filter_params),
+    )
+    
     sim_data_fname_fmt: str = '{name}_{params_fmt}.parquet'
     sim_init_file_fmt: str = partial_format(
         sim_data_fname_fmt,
@@ -128,7 +140,8 @@ class ProjectPaths:
     )
 
     def __post_init__(
-        self, user_cells_from_gps_params, user_cell_acty_params, cell_assign_params
+        self, user_cells_from_gps_params, user_cell_acty_params, cell_assign_params,
+        user_filter_params, cell_filter_params
     ):
         self.proj_data = self.proj / 'data'
         self.ext_data = self.proj_data / 'external'
@@ -159,6 +172,8 @@ class ProjectPaths:
             self.user_mistakes.parent
             / (self.user_mistakes.stem + '_chunk={i_chunk}' + self.user_mistakes.suffix)
         )
+        self.cells_mistakes = self.interim_data / '{str_cc}' / self.cells_mistakes_fname_fmt
+        self.inter_cell_od = self.interim_data / '{str_cc}' / self.inter_cell_od_fname_fmt
         self.rule_category = self.interim_data / '{cc}' / 'rule_category.csv'
         self.counts_files = (
             self.proj.parent / 'words-use' / 'data' / 'raw' / '{lc}' / '{cc}'
@@ -173,6 +188,6 @@ class ProjectPaths:
             'case_figs', 'resident_ids', 'user_cells_from_gps', 'user_places',
             'user_cell_acty', 'user_residence_cell', 'user_mistakes', 'user_corpora', 
             'chunk_user_mistakes', 'rule_category', 'language_tool_categories',
-            'counts_files', 
+            'counts_files', 'cells_mistakes', 'inter_cell_od'
         ):
             setattr(self, attr, partial_path_format(getattr(self, attr), **kwargs))
