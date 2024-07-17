@@ -144,6 +144,12 @@
                 "index_col": {"geography code": "msoa11cd"},
                 "weight_from": "msoa_pop",
                 "score_cols": [".*"]
+            },
+            "msoa_college": {
+                "fname": "msoa_college.csv",
+                "index_col": {"geography code": "msoa11cd"},
+                "weight_from": "msoa_pop",
+                "score_cols": [".*"]
             }
         }
     },
@@ -170,7 +176,7 @@
         "local_langs": ["en"],
         "max_place_area": 2.5e10,
         "cell_size": 75e3
-        }, 
+        },
     "NZ": {
         "readable": "New Zealand",
         "mongo_coll": "australia_and_new_zealand",
@@ -533,7 +539,7 @@
         "mongo_coll": "western_europe",
         "xy_proj": "EPSG:2154",
         "local_langs": ["fr"],
-        "timezone": "Europe/Paris", 
+        "timezone": "Europe/Paris",
         "shape_bbox": [-9.86, 41.15, 10.38, 51.56]
         },
     "CH": {
