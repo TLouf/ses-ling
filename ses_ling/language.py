@@ -253,7 +253,6 @@ class Language:
             user_cell_acty = (
                 user_cell_acty.groupby(['user_id', 'cell_id'])[['count', 'prop_cell']]
                  .sum()
-                 .join(self.user_residence_cell['cell_id'].rename('res_cell_id'), how='inner')
             )
             self._user_cell_acty = user_cell_acty
         return self._user_cell_acty
@@ -269,6 +268,11 @@ class Language:
 
     @property
     def user_residence_cell(self):
+        '''
+        this DF may have fewer users than `user_corpora` because some users can be
+        discarded from thresholds in `res_attr_kwargs`, because of historical reasons
+        (thresholdds introduced after computation of user_corpora)
+        '''
         # TODO: when several regions, handle duplicate user_id (should be rare though
         # given residence requirement)
         if self._user_residence_cell is None:
@@ -731,7 +735,7 @@ class Language:
 
 
     def pre_process_z_plot(self, z_plot) -> pd.Series:
-        if not isinstance(z_plot, pd.Series):
+        if not isinstance(z_plot, (pd.Series, pd.DataFrame)):
             if len(z_plot) == len(self.relevant_cells):
                 index = self.relevant_cells
             elif len(z_plot) == len(self.cells_geodf.index):
@@ -741,8 +745,8 @@ class Language:
                     "Input z values' length does not match either the number of "
                     "relevant_cells or the total number of cells"
                 )
-            z_plot = pd.Series(z_plot, index=index, name='z_plot')
-        return z_plot
+            z_plot = pd.Series(z_plot, index=index)
+        return z_plot.rename('z_plot')
 
 
     def map_continuous_choro(
