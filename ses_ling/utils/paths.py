@@ -96,6 +96,11 @@ class ProjectPaths:
             *user_cell_acty_params, 'pois_dups_th', *cell_assign_params
         ),
     )
+    user_langs_fname_fmt: str = partial_format(
+        generic_year_range_data_fname_fmt,
+        name='user_langs',
+        params_fmt=get_params_fmt_str(*cell_assign_params),
+    )
     user_mistakes_fname_fmt: str = partial_format(
         generic_year_range_data_fname_fmt,
         name='user_mistakes',
@@ -116,7 +121,7 @@ class ProjectPaths:
         name='inter_cell_od_{subreg}',
         params_fmt=get_params_fmt_str(*user_filter_params, *cell_filter_params),
     )
-    
+
     sim_data_fname_fmt: str = '{name}_{params_fmt}.parquet'
     sim_init_file_fmt: str = partial_format(
         sim_data_fname_fmt,
@@ -166,6 +171,7 @@ class ProjectPaths:
         self.user_residence_cell = (
             self.interim_data / '{cc}' / self.user_residence_cell_fname_fmt
         )
+        self.user_langs = self.interim_data / '{cc}' / self.user_langs_fname_fmt
         self.user_mistakes = self.interim_data / '{cc}' / self.user_mistakes_fname_fmt
         self.user_corpora = self.interim_data / '{cc}' / self.user_corpora_fname_fmt
         self.chunk_user_mistakes = (
@@ -186,7 +192,7 @@ class ProjectPaths:
     def partial_format(self, **kwargs):
         for attr in (
             'case_figs', 'resident_ids', 'user_cells_from_gps', 'user_places',
-            'user_cell_acty', 'user_residence_cell', 'user_mistakes', 'user_corpora', 
+            'user_cell_acty', 'user_residence_cell', 'user_langs', 'user_mistakes', 'user_corpora',
             'chunk_user_mistakes', 'rule_category', 'language_tool_categories',
             'counts_files', 'cells_mistakes', 'inter_cell_od'
         ):
