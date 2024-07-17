@@ -7,7 +7,7 @@ from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 import ses_ling.visualization.utils as viz_utils
 
 
-def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, show_pearson=False, single_cbar=True, **subplot_kwargs):
+def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, show_pearson=False, single_cbar=True, class_type='SES', **subplot_kwargs):
     cbar_label = 'log(percentage of trips)' if log_scale else 'percentage of trips'
     mosaic = viz_utils.prep_mosaic_from_dict(assort_dict, nr_cols=nr_cols)
     nr_rows = mosaic.shape[0]
@@ -27,7 +27,7 @@ def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, show_pearson=F
     axd['left_supy'].set_axis_off()
     axd['right_supy'].set_axis_off()
     assort_mins, assort_maxs = zip(*[
-        (city_dict['assort'].values.min(), city_dict['assort'].values.max()) 
+        (city_dict['assort'].values.min(), city_dict['assort'].values.max())
         for city_dict in assort_dict.values()
     ])
     for i, (city, city_dict) in enumerate(assort_dict.items()):
@@ -67,10 +67,10 @@ def assort_mosaic(assort_dict, nr_cols, figsize, log_scale=False, show_pearson=F
             cax = axd[f'cax_{city}']
             fig.colorbar(im, cax=cax)
 
-    fig.supxlabel('SES class of residence', fontsize='large')
+    fig.supxlabel(f'{class_type} class of residence', fontsize='large')
     # fig.supylabel('SES class of residence', x=0)
     axd['left_supy'].annotate(
-        'SES class of visited places', (0, 0.47),
+        f'{ class_type } class of visited places', (0, 0.47),
         va='center', rotation='vertical', fontsize='large'
     )
     axd['right_supy'].annotate(cbar_label, (0, 0.47), va='center', rotation='vertical')
