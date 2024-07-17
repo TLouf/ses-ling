@@ -23,3 +23,6 @@ def mask_outliers(s: pd.Series, iqr_mult: float = 1.5) -> pd.Series:
     upper = q3 + iqr_mult * iqr
     mask = (s >= lower) & (s <= upper)
     return mask
+
+def pearson_std(r, N_samples):
+    return (1 - r**2) / np.sqrt(N_samples - 3)
